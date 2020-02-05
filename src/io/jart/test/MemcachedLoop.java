@@ -64,7 +64,7 @@ public class MemcachedLoop extends TcpLoopCubic {
 		return new TcpOutgoing(eventQueue, pipe, mss, winSize, seqNum, sendQ);
 	}
 
-	private void ping() {
+	private void kick() {
 		eventQueue.update(exitMsg, System.nanoTime()/1000 + 15*1000*1000);		
 	}
 	
@@ -75,7 +75,7 @@ public class MemcachedLoop extends TcpLoopCubic {
 		if(!done) {
 			winSize.addAndGet(src.remaining());
 			done = !sess.recv(src) | fin;
-			ping();
+			kick();
 		}
 		if(done && !tcpOut().finOut() && tcpOut().isEmpty())
 			tcpOut().queueFin();

@@ -85,18 +85,18 @@ public class EventQueueTask implements AsyncRunnable {
 		}		
 	}
 	
-	public static class EventQueuePing {}
-	public static final EventQueuePing eventQueuePing = new EventQueuePing();
+	public static class EventQueueKick {}
+	public static final EventQueueKick eventQueueKick = new EventQueueKick();
 
 	public static class Context {
 		public final EventUpdateReq.Alloc eventUpdateReqAlloc;
 		public final EventRemoveReq.Alloc eventRemoveReqAlloc;
 		public final Queue<EventReq> eventReqQ;
 		public final AtomicInteger eventReqCount;
-		public final AsyncPipe<EventQueuePing> pipe;
+		public final AsyncPipe<EventQueueKick> pipe;
 		public final Executor exec;
 		
-		public Context(EventUpdateReq.Alloc eventUpdateReqAlloc, EventRemoveReq.Alloc eventRemoveReqAlloc, Queue<EventReq> eventReqQ, AtomicInteger eventReqCount, AsyncPipe<EventQueuePing> pipe, Executor exec) {
+		public Context(EventUpdateReq.Alloc eventUpdateReqAlloc, EventRemoveReq.Alloc eventRemoveReqAlloc, Queue<EventReq> eventReqQ, AtomicInteger eventReqCount, AsyncPipe<EventQueueKick> pipe, Executor exec) {
 			this.eventUpdateReqAlloc = eventUpdateReqAlloc;
 			this.eventRemoveReqAlloc = eventRemoveReqAlloc;
 			this.eventReqQ = eventReqQ;
@@ -147,9 +147,9 @@ public class EventQueueTask implements AsyncRunnable {
 		AtomicInteger eventReqCount = new AtomicInteger();
 		AsyncPipe<Object> pipe = new AsyncPipe<Object>(bridgeContext.taskPipeGroup);
 		@SuppressWarnings("unchecked")
-		AsyncPipe<EventQueuePing> pingPipe = (AsyncPipe<EventQueuePing>)(AsyncPipe<?>)pipe;
+		AsyncPipe<EventQueueKick> kickPipe = (AsyncPipe<EventQueueKick>)(AsyncPipe<?>)pipe;
 
-		context.complete(new Context(eventUpdateReqAlloc, eventRemoveReqAlloc, eventReqQ, eventReqCount, pingPipe, exec));
+		context.complete(new Context(eventUpdateReqAlloc, eventRemoveReqAlloc, eventReqQ, eventReqCount, kickPipe, exec));
 
 		AsyncEventQueue eventQueue = new AsyncEventQueue();
 		AsyncEventQueue.Event event = new AsyncEventQueue.Event((AsyncPipe<? super Event>) pipe);

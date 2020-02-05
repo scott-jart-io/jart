@@ -69,18 +69,18 @@ public class MsgRelayTask implements AsyncRunnable {
 		}
 }
 
-	public static class MsgRelayPing {}
-	public static final MsgRelayPing msgRelayPing = new MsgRelayPing();
+	public static class MsgRelayKick {}
+	public static final MsgRelayKick msgRelayKick = new MsgRelayKick();
 	
 	public static class Context {
 		public final MsgRelayReq.Alloc msgRelayReqAlloc;
 		public final Queue<MsgRelayReq> relayReqQ;
 		public final AtomicInteger relayReqCount;
-		public final AsyncPipe<MsgRelayPing> pipe;
+		public final AsyncPipe<MsgRelayKick> pipe;
 
 		public final Executor exec;
 	
-		public Context(MsgRelayReq.Alloc msgRelayReqAlloc, Queue<MsgRelayReq> relayReqQ, AtomicInteger relayReqCount, AsyncPipe<MsgRelayPing> pipe, Executor exec) {
+		public Context(MsgRelayReq.Alloc msgRelayReqAlloc, Queue<MsgRelayReq> relayReqQ, AtomicInteger relayReqCount, AsyncPipe<MsgRelayKick> pipe, Executor exec) {
 			this.msgRelayReqAlloc = msgRelayReqAlloc;
 			this.relayReqQ = relayReqQ;
 			this.relayReqCount = relayReqCount;
@@ -127,11 +127,11 @@ public class MsgRelayTask implements AsyncRunnable {
 	public CompletableFuture<Void> run() {
 		Queue<MsgRelayReq> relayReqQ = new ConcurrentLinkedQueue<MsgRelayReq>();
 		AtomicInteger relayReqCount = new AtomicInteger();
-		AsyncPipe<MsgRelayPing> pipe = new AsyncPipe<MsgRelayPing>(bridgeContext.taskPipeGroup);
+		AsyncPipe<MsgRelayKick> pipe = new AsyncPipe<MsgRelayKick>(bridgeContext.taskPipeGroup);
 
 		context.complete(new Context(msgRelayReqAlloc, relayReqQ, relayReqCount, pipe, exec));
 
-		return AsyncLoop.iterate(()->pipe.read(exec), (MsgRelayPing dummy)->{
+		return AsyncLoop.iterate(()->pipe.read(exec), (MsgRelayKick dummy)->{
 			int count = relayReqCount.get();
 			
 			// deal with requests

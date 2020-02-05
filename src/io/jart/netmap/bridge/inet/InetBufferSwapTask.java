@@ -132,6 +132,11 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		void disposeMsg(Object obj); // dispose of unhandled non-IpPacket messages in the packet pipe at connection termination time
 	}
 
+	// may be implemented by an object that is associated with an IpConnHandler
+	public static interface IpConnHandlerAssociate {
+		IpConnHandler getIpConnHandler();
+	}
+	
 	// listens to (and accepts) ip-based connections
 	public static interface IpConnListener {
 		IpConnHandler accept(IpPacket firstPacket);
@@ -197,18 +202,36 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		return super.run();
 	}
 
-	private void ipAccept(Map<InetAddrAndPortPair, ToIntFunction<? super IpPacket>> conns, InetAddrAndPortPair app, IpConnListener listener, IpPacket ipPacket) {
-		IpConnHandler conn = listener.accept(ipPacket);
-		AsyncPipe<? super IpPacket> pipe = conn.getPacketPipe();
-		ToIntFunction<? super IpPacket> consumer = (IpPacket packet)->{
+	private static class IpConnHandlerPacketConsumer implements ToIntFunction<IpPacket>, IpConnHandlerAssociate {
+		private final IpConnHandler conn;
+		private final AsyncPipe<? super IpPacket> pipe;
+		
+		public IpConnHandlerPacketConsumer(IpConnHandler conn) {
+			this.conn = conn;
+			this.pipe = conn.getPacketPipe();
+		}
+		
+		public int applyAsInt(IpPacket packet){
 			pipe.write(packet);
 			return NEXT_A;
-		};
+		}
+
+		@Override
+		public IpConnHandler getIpConnHandler() {
+			return conn;
+		}
+	}
+	
+	private void ipAccept(Map<InetAddrAndPortPair, ToIntFunction<? super IpPacket>> conns, InetAddrAndPortPair app, IpConnListener listener, IpPacket ipPacket) {
+		IpConnHandler conn = listener.accept(ipPacket);
+		ToIntFunction<? super IpPacket> consumer = new IpConnHandlerPacketConsumer(conn);
 
 		conns.put(app, consumer);
 
 		// unlock otherwise orphaned buffers
 		AsyncRunnable drainPipe = ()->{
+			AsyncPipe<? super IpPacket> pipe = conn.getPacketPipe();
+
 			for(;;) {
 				Object obj = pipe.poll();
 

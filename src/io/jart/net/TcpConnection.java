@@ -110,7 +110,7 @@ public abstract class TcpConnection extends TcpLoopCubic {
 	
 	@Override
 	protected void connected() {
-		ping();
+		kick();
 		privateRun();
 	}
 	
@@ -126,8 +126,7 @@ public abstract class TcpConnection extends TcpLoopCubic {
 
 	protected Executor executor() { return abbr.executor(); }
 	protected abstract CompletableFuture<Void> connectionRun();
-	
-	private void ping() {
+	protected void kick() {
 		eventQueue.update(exitMsg, System.nanoTime()/1000 + 15*1000*1000);		
 	}
 
@@ -184,7 +183,7 @@ public abstract class TcpConnection extends TcpLoopCubic {
 				shutdown.complete(null);
 		}
 		if(!closing)
-			ping();
+			kick();
 	}
 
 	protected AsyncByteBufferReader getReader() {

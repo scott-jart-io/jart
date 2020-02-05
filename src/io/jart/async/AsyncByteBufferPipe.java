@@ -77,12 +77,12 @@ public class AsyncByteBufferPipe implements AsyncByteBufferReader {
 		// lock the reference to replace the underlying buffer w/ a copy before returning
 		synchronized(ref) {
 			int remaining = src.remaining();
-			
+
 			ref.needsCopy = false;
 			if(remaining == 0)
 				ref.byteBuffer = emptyByteBuffer;
 			else {
-				ref.byteBuffer = ByteBuffer.allocate(src.remaining());
+				ref.byteBuffer = ByteBuffer.allocate(remaining);
 				ref.byteBuffer.put(src).rewind();
 			}
 		}

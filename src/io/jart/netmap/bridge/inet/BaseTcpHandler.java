@@ -39,7 +39,7 @@ import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 public class BaseTcpHandler implements InetBufferSwapTask.IpConnHandler {
 	private final AsyncPipe<? super IpPacket> packetPipe;
 	private final TcpLoop tcpLoop;
-	
+
 	public BaseTcpHandler(AsyncPipe<? super IpPacket> packetPipe, TcpLoop tcpLoop) {
 		this.packetPipe = packetPipe;
 		this.tcpLoop = tcpLoop;
@@ -58,5 +58,9 @@ public class BaseTcpHandler implements InetBufferSwapTask.IpConnHandler {
 	@Override
 	public void disposeMsg(Object obj) {
 		tcpLoop.disposeMsg(obj);
+	}
+	
+	public TcpLoop getTcpLoop() {
+		return tcpLoop;
 	}
 }

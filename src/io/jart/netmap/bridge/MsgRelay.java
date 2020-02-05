@@ -36,12 +36,12 @@ import io.jart.async.AsyncPipe;
 public class MsgRelay {
 	private final BridgeTask.Context bridgeContext;
 	private final MsgRelayTask.Context msgRelayContext;
-	private final BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayPing> bridgeRelayPingReq;
+	private final BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayKick> bridgeRelayKickReq;
 
 	public MsgRelay(BridgeTask.Context bridgeContext, MsgRelayTask.Context msgRelayContext) {
 		this.bridgeContext = bridgeContext;
 		this.msgRelayContext = msgRelayContext;
-		this.bridgeRelayPingReq = new BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayPing>(msgRelayContext.pipe, MsgRelayTask.msgRelayPing);
+		this.bridgeRelayKickReq = new BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayKick>(msgRelayContext.pipe, MsgRelayTask.msgRelayKick);
 	}
 	
 	// ok to call at any time in any context
@@ -49,6 +49,6 @@ public class MsgRelay {
 	public <T> void relay(AsyncPipe<? super T> pipe, T msg) {
 		msgRelayContext.relayReqQ.offer(msgRelayContext.msgRelayReqAlloc.alloc((AsyncPipe<Object>)pipe, (Object)msg));
 		if(msgRelayContext.relayReqCount.getAndIncrement() == 0)
-			bridgeContext.waker.wake(bridgeRelayPingReq);
+			bridgeContext.waker.wake(bridgeRelayKickReq);
 	}
 }

@@ -43,7 +43,7 @@ public class EventQueue implements io.jart.util.EventQueue {
 	private void request(EventQueueTask.EventReq req) {
 		eventQueueContext.eventReqQ.offer(req);
 		if(eventQueueContext.eventReqCount.getAndIncrement() == 0)
-			eventQueueContext.pipe.write(EventQueueTask.eventQueuePing);		
+			eventQueueContext.pipe.write(EventQueueTask.eventQueueKick);		
 	}
 	
 	// only callable from a bridge task

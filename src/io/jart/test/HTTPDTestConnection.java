@@ -32,10 +32,12 @@ package io.jart.test;
 
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -94,6 +96,17 @@ public class HTTPDTestConnection extends HTTPDConnection {
 	}
 
 	private static Pattern rejectPat = Pattern.compile("^[^/]|/\\.\\./|/\\.\\.$");
+	private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
+	
+	private static String bytesToHex(byte[] bytes) {
+	    char[] hexChars = new char[bytes.length * 2];
+	    for (int j = 0; j < bytes.length; j++) {
+	        int v = bytes[j] & 0xFF;
+	        hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+	        hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+	    }
+	    return new String(hexChars);
+	}
 	
 	@Override
 	protected CompletableFuture<Void> serve(String verb, String url, Header[] headers) throws Exception {
@@ -105,15 +118,48 @@ public class HTTPDTestConnection extends HTTPDConnection {
 		if("put".equals(verb))
 			return servePut(url, headers);
 		
+		// any other verbs and we'll sha any content and print out request info
+		Long size = null;
+		
+		for(Header header: headers) {
+			if(header.name.equals("content-length"))
+				size = Long.valueOf(header.value);
+			else if(header.name.equals("expect") && header.value.equals("100-continue"))
+				Async.await(sendResponseHeader(100, "continue", null));
+		}
+		
+		byte[] mdBuf;
+		
+		if(size != null) {
+			MessageDigest md = MessageDigest.getInstance("sha-1");
+
+			// hash directly from netmap buffers
+			Async.await(getReader().read((ByteBuffer buf, Boolean needsCopy)->{
+				md.update(buf);
+				return true;
+			}, size));
+			
+			mdBuf = new byte[md.getDigestLength()];
+			md.digest(mdBuf, 0, mdBuf.length);
+		}
+		else
+			mdBuf = null;
+		
 		Async.await(sendResponseHeader(200, "ok", Arrays.asList(new String[] { "content-type: text/plain" })));
 
 		Async.await(getWriter().write(verb));
 		Async.await(getWriter().write(crlf));
 		Async.await(getWriter().write(url));
 		Async.await(getWriter().write(crlf));
+
 		for(Header header: headers) {
-			Async.await(getWriter().write(header.name + ": " + header.value));
+			Async.await(getWriter().write(header.toString()));
 			Async.await(getWriter().write(crlf));
+		}
+		if(mdBuf != null) {
+			Async.await(getWriter().write(crlf));
+			Async.await(getWriter().write("sha1 = " + bytesToHex(mdBuf)));
+			Async.await(getWriter().write(crlf));			
 		}
 		return AsyncLoop.cfVoid;
 	}
