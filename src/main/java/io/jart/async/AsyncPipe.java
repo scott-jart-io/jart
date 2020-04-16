@@ -166,7 +166,7 @@ public class AsyncPipe<T> {
 
 			if(cur >= 0)
 				return null;
-			if(readerDelta.weakCompareAndSet(cur, cur + 1))
+			if(readerDelta.compareAndSet(cur, cur + 1))
 				return msgQ.poll();
 		}
 	}
