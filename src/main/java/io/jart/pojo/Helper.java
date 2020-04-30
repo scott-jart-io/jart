@@ -44,30 +44,67 @@ import java.util.function.Supplier;
 
 import org.objectweb.asm.*;
 
+/**
+ * Helper class for using custom allocators with POJO classes.
+ */
 public class Helper implements Opcodes {
+	
+	/**
+	 * POJO annotation.
+	 */
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target(ElementType.TYPE)
-	public @interface POJO { // apply to POJO class
+	public @interface POJO { 
+		 /**
+		  * Field order for the associated class.
+		  *
+		  * @return the string[]
+		  */
 		public String[] fieldOrder();
 	}
 
+	/**
+	 * Apply to a field that shouldn't be cleared on free.
+	 */
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target(ElementType.TYPE)
-	public @interface NoClear {} // apply to a field that shouldn't be cleared on free
+	public @interface NoClear {}
 
 	public static final Helper defaultHelper = new Helper();
 	public static final Consumer<?> noopConsumer = (Object)->{};
 	
 	private final Loader loader;
 
+	/**
+	 * Instantiates a new helper.
+	 */
 	public Helper() {
 		loader = new Loader(ClassLoader.getSystemClassLoader());
 	}
 
+	/**
+	 * Instantiates a new helper.
+	 *
+	 * @param parent the parent
+	 */
 	public Helper(ClassLoader parent) {
 		loader = new Loader(parent);
 	}
 
+	/**
+	 * New constructing supplier.
+	 *
+	 * @param <T> the generic type
+	 * @param baseClass the base class
+	 * @return the supplier
+	 * @throws ClassNotFoundException the class not found exception
+	 * @throws InstantiationException the instantiation exception
+	 * @throws IllegalAccessException the illegal access exception
+	 * @throws IllegalArgumentException the illegal argument exception
+	 * @throws InvocationTargetException the invocation target exception
+	 * @throws NoSuchMethodException the no such method exception
+	 * @throws SecurityException the security exception
+	 */
 	public<T> Supplier<T> newConstructingSupplier(Class<T> baseClass) throws ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
 		Class<?> pojoCSClass = loader.loadClass(baseClass.getTypeName() + "$$POJO$ConstructingSupplier");
 		@SuppressWarnings("unchecked")
@@ -76,6 +113,22 @@ public class Helper implements Opcodes {
 		return constructor.newInstance();
 	}
 
+	/**
+	 * New allocator object for a give class, object supplier, and an free object consumer.
+	 *
+	 * @param <T> the generic type
+	 * @param baseClass the base class
+	 * @param supplier the supplier
+	 * @param consumer the consumer
+	 * @return the object
+	 * @throws ClassNotFoundException the class not found exception
+	 * @throws NoSuchMethodException the no such method exception
+	 * @throws SecurityException the security exception
+	 * @throws InstantiationException the instantiation exception
+	 * @throws IllegalAccessException the illegal access exception
+	 * @throws IllegalArgumentException the illegal argument exception
+	 * @throws InvocationTargetException the invocation target exception
+	 */
 	public<T> Object newAlloc(Class<T> baseClass, Supplier<T> supplier, Consumer<T> consumer) throws ClassNotFoundException, NoSuchMethodException, SecurityException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
 		Class<?> allocImplClass = loader.loadClass(baseClass.getTypeName() + "$$POJO$Alloc");
 		Constructor<?> constructor = allocImplClass.getConstructor(Supplier.class, Consumer.class); 
@@ -83,6 +136,20 @@ public class Helper implements Opcodes {
 		return constructor.newInstance(supplier, consumer);
 	}
 
+	/**
+	 * New trivial allocator that just calls new and abandons object on free.
+	 *
+	 * @param <T> the generic type
+	 * @param baseClass the base class
+	 * @return the object
+	 * @throws ClassNotFoundException the class not found exception
+	 * @throws NoSuchMethodException the no such method exception
+	 * @throws SecurityException the security exception
+	 * @throws InstantiationException the instantiation exception
+	 * @throws IllegalAccessException the illegal access exception
+	 * @throws IllegalArgumentException the illegal argument exception
+	 * @throws InvocationTargetException the invocation target exception
+	 */
 	@SuppressWarnings("unchecked")
 	public<T> Object newTrivialAlloc(Class<T> baseClass) throws ClassNotFoundException, NoSuchMethodException, SecurityException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
 		Class<?> allocImplClass = loader.loadClass(baseClass.getTypeName() + "$$POJO$Alloc$NoClear");
@@ -91,10 +158,27 @@ public class Helper implements Opcodes {
 		return constructor.newInstance(newConstructingSupplier(baseClass), (Consumer<T>)noopConsumer);
 	}
 	
+	/**
+	 * The Class Loader.
+	 */
 	private static class Loader extends ClassLoader {
+		
+		/**
+		 * Instantiates a new loader.
+		 *
+		 * @param cl the cl
+		 */
 		public Loader(ClassLoader cl) {
 			super(cl);
 		}
+		
+		/**
+		 * Find class.
+		 *
+		 * @param name the name
+		 * @return the class
+		 * @throws ClassNotFoundException the class not found exception
+		 */
 		@Override
 		protected Class<?> findClass(String name) throws ClassNotFoundException {
 			if(name.endsWith("$$POJO")) {
@@ -131,6 +215,14 @@ public class Helper implements Opcodes {
 			return super.findClass(name);
 		}
 
+		/**
+		 * Gets the fields.
+		 *
+		 * @param clazz the clazz
+		 * @return the fields
+		 * @throws SecurityException the security exception
+		 * @throws ClassNotFoundException the class not found exception
+		 */
 		private static Field[] getFields(Class<?> clazz) throws SecurityException, ClassNotFoundException {
 			POJO pojoAnnot = clazz.getAnnotation(POJO.class);
 
@@ -157,6 +249,16 @@ public class Helper implements Opcodes {
 			return result;
 		}
 		
+		/**
+		 * Creates the alloc class bytes.
+		 *
+		 * @param name the name
+		 * @param pojoName the pojo name
+		 * @param baseClass the base class
+		 * @return the byte[]
+		 * @throws ClassNotFoundException the class not found exception
+		 * @throws SecurityException the security exception
+		 */
 		private byte[] createAllocClassBytes (String name, String pojoName, Class<?> baseClass) throws ClassNotFoundException, SecurityException {
 			Type baseType = Type.getType(baseClass);
 			String baseDesc = baseType.getDescriptor();
@@ -255,6 +357,13 @@ public class Helper implements Opcodes {
 			return cw.toByteArray();
 		}
 
+		/**
+		 * Creates the constructing supplier class bytes.
+		 *
+		 * @param name the name
+		 * @param pojoName the pojo name
+		 * @return the byte[]
+		 */
 		private byte[] createConstructingSupplierClassBytes (String name, String pojoName) {
 			ClassWriter cw = new ClassWriter(0);
 			MethodVisitor mv;
@@ -285,6 +394,15 @@ public class Helper implements Opcodes {
 
 		}
 
+		/**
+		 * Creates the POJO class bytes.
+		 *
+		 * @param name the name
+		 * @param baseClass the base class
+		 * @return the byte[]
+		 * @throws SecurityException the security exception
+		 * @throws ClassNotFoundException the class not found exception
+		 */
 		private byte[] createPOJOClassBytes (String name, Class<?> baseClass) throws SecurityException, ClassNotFoundException {
 			Type baseType = Type.getType(baseClass);
 			String baseName = baseType.getInternalName();
