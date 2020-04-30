@@ -35,15 +35,30 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+/**
+ * Thread safe (but assumes no over or underruns!) Circular buffer.
+ *
+ * @param <T> the generic type
+ */
 public class CircularBuffer<T> implements Supplier<T>, Consumer<T> {
 	private final AtomicReferenceArray<T> refs;
 	private final AtomicLong head = new AtomicLong();
 	private final AtomicLong tail = new AtomicLong();
 	
+	/**
+	 * Instantiates a new circular buffer.
+	 *
+	 * @param size the size
+	 */
 	public CircularBuffer(int size) {
 		refs = new AtomicReferenceArray<T>(size);
 	}
 	
+	/**
+	 * Put an object an increment the tail.
+	 *
+	 * @param t the t
+	 */
 	@Override
 	public void accept(T t) {
 		int index = (int)(tail.getAndIncrement() % refs.length());
@@ -51,6 +66,11 @@ public class CircularBuffer<T> implements Supplier<T>, Consumer<T> {
 		refs.set(index, t);
 	}
 
+	/**
+	 * Get an object and increment the head.
+	 *
+	 * @return the t
+	 */
 	@Override
 	public T get() {
 		int index = (int)(head.getAndIncrement() % refs.length());

@@ -36,22 +36,38 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 
-// delegates tasks to provided Executor (or ForkJoinPool)
-// allows pausing which queues tasks but doesn't execute them
-// as well as running tasks synchronously
+/**
+ * Delegates tasks to provided Executor (or ForkJoinPool).
+ * allows pausing which queues tasks but doesn't execute them
+ * as well as running tasks synchronously
+ */
 public class PausableExecutor implements Executor {
 	private final static Logger logger = Logger.getLogger(PausableExecutor.class);
 
+	/**
+	 * Link in waiting Runnable linked list.
+	 */
 	private static class Link {
 		public final Runnable runnable;
 		public Link next;
 		
+		/**
+		 * Instantiates a new link.
+		 *
+		 * @param runnable the runnable
+		 */
 		public Link(Runnable runnable) {
 			this.runnable = runnable;
 		}
 	}
 	private static final Link sentinel = new Link(null);
 	
+	/**
+	 * Reverse the linked list.
+	 *
+	 * @param cur the cur
+	 * @return the link
+	 */
 	private static Link reverse(Link cur) {
 		Link prev = null;
 		
@@ -68,18 +84,37 @@ public class PausableExecutor implements Executor {
 	private final Executor exec;
 	private final AtomicReference<Link> head = new AtomicReference<Link>();
 	
+	/**
+	 * Handle uncaught exception.
+	 *
+	 * @param th the th
+	 */
 	protected void uncaught(Throwable th) {
 		logger.error("pausableexecutor runnable threw", th);
 	}
 
+	/**
+	 * Instantiates a new pausable executor.
+	 *
+	 * @param exec the Executor to run on.
+	 */
 	public PausableExecutor(Executor exec) {
 		this.exec = (exec == null) ? ForkJoinPool.commonPool() : exec;
 	}
 
+	/**
+	 * Instantiates a new pausable executor with a default Executor.
+	 */
 	public PausableExecutor() {
 		this(null);
 	}
 
+	/**
+	 * Execute a command.
+	 * Submit to wrapped Executor immediately unless paused. If paused, queue command until resumed.
+	 *
+	 * @param command the command
+	 */
 	@Override
 	public void execute(Runnable command) {
 		Link newLink = null;
@@ -99,12 +134,16 @@ public class PausableExecutor implements Executor {
 		}
 	}
 
-	// stop submitting tasks to delegate executor
+	/**
+	 * Pause execution of commands.
+	 */
 	public void pause() {
 		head.compareAndSet(null, sentinel);
 	}
 		
-	// resume submitting tasks to delegate executor (including queued tasks)
+	/**
+	 * Resume executing commands in wrapped Executor.
+	 */
 	public void resume() {
 		Link cur = reverse(head.getAndSet(null));
 		
@@ -114,6 +153,11 @@ public class PausableExecutor implements Executor {
 		}
 	}
 
+	/**
+	 * Thread main.
+	 *
+	 * @param cur the cur
+	 */
 	private void run(Link cur) {
 		while(cur != null) {
 			try {
@@ -126,7 +170,11 @@ public class PausableExecutor implements Executor {
 		}		
 	}
 	
-	// resume submitting tasks to delegate executor after draining queue synchronously
+	/**
+	 * Resume synchronously.
+	 * Synchronously drain the queue (running any commands on this thread -- including newly submitted runnables) until empty and then
+	 * resume submitting runnables to the wrapped Executor.
+	 */
 	public void resumeSync() {
 		for(;;) {
 			Link cur = head.getAndSet(sentinel);

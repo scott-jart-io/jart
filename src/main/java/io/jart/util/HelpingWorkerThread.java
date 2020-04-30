@@ -30,16 +30,22 @@
 
 package io.jart.util;
 
-// simple, effective load balancing extension to WorkerThread
-// after exhausting its own queue, helps a peer --
-// executes own queue in FIFO, like WorkerThread
-// helps from peer queue in LIFO order
+/**
+ * Simple, effective load balancing extension to WorkerThread.
+ * after exhausting its own queue, helps a peer --
+ * executes own queue in FIFO, like WorkerThread
+ * helps from peer queue in LIFO order
+ */
 public class HelpingWorkerThread extends WorkerThread {
 	private HelpingWorkerThread peer;
 	private HelpingWorkerThread helper;
 
+	/**
+	 * Do some work.
+	 */
 	@Override
 	protected void work() {
+		// drain our own queue
 		super.work();
 
 		HelpingWorkerThread peer = this.peer;
@@ -56,6 +62,11 @@ public class HelpingWorkerThread extends WorkerThread {
 		}
 	}
 
+	/**
+	 * Execute a command.
+	 *
+	 * @param command the command
+	 */
 	@Override
 	public void execute(Runnable command) {
 		dq.offerFirst(command);
@@ -63,10 +74,20 @@ public class HelpingWorkerThread extends WorkerThread {
 			helper.wake();
 	}
 	
+	/**
+	 * Gets the peer.
+	 *
+	 * @return the peer
+	 */
 	public HelpingWorkerThread getPeer() {
 		return peer;
 	}
 
+	/**
+	 * Sets the peer.
+	 *
+	 * @param peer the new peer
+	 */
 	public void setPeer(HelpingWorkerThread peer) {
 		peer.helper = this;
 		this.peer = peer;

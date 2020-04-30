@@ -30,6 +30,11 @@
 
 package io.jart.util;
 
+/**
+ * Misc stuff.
+ */
 public class Misc {
+	private Misc() {} // hide constructor
+	
 	public final static boolean IS_FREEBSD = System.getProperty("os.name").toLowerCase().contains("freebsd");
 }

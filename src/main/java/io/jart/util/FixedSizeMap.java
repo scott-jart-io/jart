@@ -41,17 +41,39 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.ToLongBiFunction;
 
-// fixed size cache
-// entries will be evicted in lru order to ensure a maximum "weight"
-// and entries will also evicted possibly satisfy puts --
-// put will only replace an "older" entry, but it may not be the global lru
-// threadsafe but all successful operations are "writes" including "get" as it
-// updates lru -- so maybe use striping for high concurrency
+/**
+ * Implements a fixed size cache.
+ * 
+ * entries will be evicted in lru order to ensure a maximum "weight"
+ * and entries will also evicted possibly satisfy puts --
+ * put will only replace an "older" entry, but it may not be the global lru
+ * threadsafe but all successful operations are "writes" including "get" as it
+ * updates lru -- so maybe use striping for high concurrency
+ *
+ * @param <K> the key type
+ * @param <V> the value type
+ */
+// 
 public class FixedSizeMap<K, V> implements Map<K, V> {
-	// immutable key, mutable value
+	
+	/**
+	 * Cache entry.
+	 * Immutable key, mutable value.
+	 *
+	 * @param <K> the key type
+	 * @param <V> the value type
+	 */
 	private static class Entry<K, V> {
+		
+		/**
+		 * Singleton to represent null values in the cache.
+		 */
 		public static class NullValue {};
 		public static final Object nullValue = new NullValue();
+		
+		/**
+		 * Singleton to represent a tombstone in the cache.
+		 */
 		public static class TombstoneValue {};
 		public static final Object tombstoneValue = new TombstoneValue();
 
@@ -60,6 +82,15 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		private final AtomicReference<V> _value;
 		public final AtomicLong timestamp;
 		
+		/**
+		 * Instantiates a new entry.
+		 *
+		 * @param keyHash the key hash
+		 * @param key the key
+		 * @param value the value
+		 * @param weight the weight
+		 * @param timestamp the timestamp
+		 */
 		public Entry(int keyHash, K key, V value, long weight, long timestamp) {
 			this.keyHash = keyHash;
 			this.key = key;
@@ -67,11 +98,21 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 			this.timestamp = new AtomicLong(timestamp);
 		}
 
+		/**
+		 * Gets the value.
+		 *
+		 * @return the value
+		 */
 		public V getValue() {
 			return _value.get();
 		}
 		
-		// get-and-set but don't ever change a tombstone
+		/**
+		 * Get-and-set but don't ever change a tombstone.
+		 *
+		 * @param newValue the new value
+		 * @return the previous value (if tombstone, set didn't succeed)
+		 */
 		public V getAndSetValue(V newValue) {
 			for(;;) {
 				V oldValue = _value.get();
@@ -83,7 +124,13 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 			}
 		}
 
-		// cas but always fail on existing tombstone
+		/**
+		 * Cas but always fail on existing tombstone.
+		 *
+		 * @param expected the expected
+		 * @param newValue the new value
+		 * @return true, if successful
+		 */
 		public boolean compareAndSetValue(V expected, V newValue) {
 			for(;;) {
 				V oldValue = _value.get();
@@ -108,6 +155,15 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 	private final Executor exec;
 	private int evictIndex = 0;
 
+	/**
+	 * Instantiates a new fixed size map.
+	 *
+	 * @param maxEntries the max entries
+	 * @param maxWeight the max weight
+	 * @param weigher the weigher
+	 * @param neighborhood the neighborhood size
+	 * @param exec the Executor to run cleanup on
+	 */
 	@SuppressWarnings("unchecked")
 	public FixedSizeMap(int maxEntries, long maxWeight, ToLongBiFunction<K, V> weigher, int neighborhood, Executor exec) {
 		this.entries = new AtomicReferenceArray<Entry<K, V>>(maxEntries);
@@ -118,25 +174,67 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		for(int i = 0; i < maxEntries; i++)
 			entries.set(i, (Entry<K, V>) invalidEntry);
 	}
+	
+	/**
+	 * Instantiates a new fixed size map with default Executor.
+	 *
+	 * @param maxEntries the max entries
+	 * @param maxWeight the max weight
+	 * @param weigher the weigher
+	 * @param neighborhood the neighborhood
+	 */
 	public FixedSizeMap(int maxEntries, long maxWeight, ToLongBiFunction<K, V> weigher, int neighborhood) {
 		this(maxEntries, maxWeight, weigher, neighborhood, null);
 	}
+	
+	/**
+	 * Instantiates a new fixed size map with default neighborhood.
+	 *
+	 * @param maxEntries the max entries
+	 * @param maxWeight the max weight
+	 * @param weigher the weigher
+	 * @param exec the Executor to run cleanup on
+	 */
 	public FixedSizeMap(int maxEntries, long maxWeight, ToLongBiFunction<K, V> weigher, Executor exec) {
 		this(maxEntries, maxWeight, weigher, 44, exec);
 	}
+	
+	/**
+	 * Instantiates a new fixed size map with default neighborhood, Executor.
+	 *
+	 * @param maxEntries the max entries
+	 * @param maxWeight the max weight
+	 * @param weigher the weigher
+	 */
 	public FixedSizeMap(int maxEntries, long maxWeight, ToLongBiFunction<K, V> weigher) {
 		this(maxEntries, maxWeight, weigher, null);
 	}
 	
+	/**
+	 * Get current size of map.
+	 *
+	 * @return the int
+	 */
 	@Override
 	public int size() {
 		return size.get();
 	}
 	
+	/**
+	 * Get the current weight of the map.
+	 *
+	 * @return the long
+	 */
 	public long weight() {
 		return Math.max(0, addedWeight.get() - removedWeight.get());
 	}
 	
+	/**
+	 * Gets the value at the given key.
+	 *
+	 * @param key the key
+	 * @return the v
+	 */
 	@Override
 	public V get(Object key) {
 		if(key == null)
@@ -160,6 +258,11 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		return null;
 	}
 	
+	/**
+	 * Adds additional weight.
+	 *
+	 * @param delta the delta
+	 */
 	private void addWeight(long delta) {
 		long newWeight = addedWeight.addAndGet(delta);
 		
@@ -214,7 +317,15 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		}
 	}
 	
-	// attempt to replace the value in the entry
+	/**
+	 * Try to replace value in the netry.
+	 *
+	 * @param entry the entry
+	 * @param keyHash the key hash
+	 * @param key the key
+	 * @param value the value
+	 * @return the v
+	 */
 	@SuppressWarnings("unchecked")
 	private V tryReplaceValue(Entry<K, V> entry, int keyHash, K key, V value) {
 		if(keyHash != entry.keyHash || !key.equals(entry.key))
@@ -238,7 +349,14 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		return oldValue;
 	}
 	
-	// try to overwrite the given entry with a new one
+	/**
+	 * Try to overwrite entry.
+	 *
+	 * @param index the index
+	 * @param timestamp the timestamp
+	 * @param newEntry the new entry
+	 * @return true, if successful
+	 */
 	@SuppressWarnings("unchecked")
 	private boolean tryOverwriteEntry(int index, long timestamp, Entry<K, V> newEntry) {
 		Entry<K, V> oldEntry = entries.get(index);
@@ -255,7 +373,13 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		return entries.compareAndSet(index, oldEntry, newEntry);
 	}
 	
-	// replaces some entry w/ the given key/value pair
+	/**
+	 * Put value at given key.
+	 *
+	 * @param key the key
+	 * @param value the value
+	 * @return the v
+	 */
 	@Override
 	public V put(K key, V value) {
 		if(key == null)
@@ -330,6 +454,12 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		return null;
 	}
 	
+	/**
+	 * Removes the value at the given key.
+	 *
+	 * @param key the key
+	 * @return the v
+	 */
 	@Override
 	public V remove(Object key) {
 		if(key == null)
@@ -360,6 +490,9 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 		return result;
 	}
 
+	/**
+	 * Clear the map.
+	 */
 	@Override
 	public void clear() {
 		int len = entries.length();
@@ -374,31 +507,75 @@ public class FixedSizeMap<K, V> implements Map<K, V> {
 			}
 		}
 	}
+	
+	/**
+	 * Checks if is empty.
+	 *
+	 * @return true, if is empty
+	 */
 	@Override
 	public boolean isEmpty() {
 		return size() == 0;
 	}
+	
+	/**
+	 * Check for a value associated with the given key.
+	 *
+	 * @param key the key
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean containsKey(Object key) {
 		return get(key) != null;
 	}
+	
+	/**
+	 * Unsupported.
+	 *
+	 * @param value the value
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean containsValue(Object value) {
 		throw new UnsupportedOperationException();
 	}
+	
+	/**
+	 * Put all key/value pairs.
+	 *
+	 * @param m the m
+	 */
 	@Override
 	public void putAll(Map<? extends K, ? extends V> m) {
 		for(Map.Entry<? extends K, ? extends V> entry: m.entrySet())
 			put(entry.getKey(), entry.getValue());
 	}
+	
+	/**
+	 * Unsupported.
+	 *
+	 * @return the sets the
+	 */
 	@Override
 	public Set<K> keySet() {
 		throw new UnsupportedOperationException();
 	}
+	
+	/**
+	 * Unsupported.
+	 *
+	 * @return the collection
+	 */
 	@Override
 	public Collection<V> values() {
 		throw new UnsupportedOperationException();
 	}
+	
+	/**
+	 * Unsupported.
+	 *
+	 * @return the sets the
+	 */
 	@Override
 	public Set<Map.Entry<K, V>> entrySet() {
 		throw new UnsupportedOperationException();

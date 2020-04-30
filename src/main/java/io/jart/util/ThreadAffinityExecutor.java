@@ -33,10 +33,17 @@ package io.jart.util;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
-// executor / affinity that tracks the current thread
+/**
+ * Executor that delegates execution to the most recent executor thread (when currentThread() implements Executor, like WorkerThread).
+ */
 public class ThreadAffinityExecutor implements Executor {
-	private Executor exec;
+	private Executor exec; // current Executor to delegat to
 	
+	/**
+	 * Instantiates a new thread affinity executor.
+	 *
+	 * @param exec the initial delegate Executor
+	 */
 	public ThreadAffinityExecutor(Executor exec) {
 		if(exec instanceof ThreadAffinityExecutor)
 			this.exec = ((ThreadAffinityExecutor)exec).exec;
@@ -52,12 +59,19 @@ public class ThreadAffinityExecutor implements Executor {
 		}
 	}
 	
+	/**
+	 * Submit the command to the current delegate Executor.
+	 * When the command begins executing, if the executing thread is an Executor, that Executor becomes the new
+	 * current delegate Executor.
+	 *
+	 * @param command the command
+	 */
 	@Override
 	public void execute(Runnable command) {
 		exec.execute(()->{
 			Thread currentThread = Thread.currentThread();
 			
-			if(currentThread instanceof Executor)
+			if(currentThread instanceof Executor) // if the current thread implements Executor, adopt it
 				exec = (Executor)currentThread;
 			command.run();
 		});

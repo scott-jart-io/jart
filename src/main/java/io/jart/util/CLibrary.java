@@ -34,6 +34,9 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.LastErrorException;
 
+/**
+ * JNA methods as well as various c lib constants.
+ */
 public interface CLibrary extends Library {
 	CLibrary INSTANCE = (CLibrary)Native.load("c", CLibrary.class);
 
@@ -57,17 +60,100 @@ public interface CLibrary extends Library {
 	public static final int MAP_SHARED = 1;
 	public static final int MAP_PRIVATE = 2;
 	
+	/**
+	 * Open.
+	 *
+	 * @param path the path
+	 * @param mode the mode
+	 * @return the int
+	 * @throws LastErrorException the last error exception
+	 */
 	int open(String path, int mode) throws LastErrorException;
+	
+	/**
+	 * Read.
+	 *
+	 * @param fd the fd
+	 * @param buf the buf
+	 * @param count the count
+	 * @return the long
+	 * @throws LastErrorException the last error exception
+	 */
 	long read(int fd, Pointer buf, long count) throws LastErrorException;
+	
+	/**
+	 * Write.
+	 *
+	 * @param fd the fd
+	 * @param buf the buf
+	 * @param count the count
+	 * @return the long
+	 * @throws LastErrorException the last error exception
+	 */
 	long write(int fd, Pointer buf, long count) throws LastErrorException;
+	
+	/**
+	 * Close.
+	 *
+	 * @param fd the fd
+	 * @return the int
+	 * @throws LastErrorException the last error exception
+	 */
 	int close(int fd) throws LastErrorException;
 
+	/**
+	 * Ioctl.
+	 *
+	 * @param fd the fd
+	 * @param cmd the cmd
+	 * @param args the args
+	 * @return the int
+	 * @throws LastErrorException the last error exception
+	 */
 	int ioctl(int fd, long cmd, Object...args) throws LastErrorException;
+    
+    /**
+     * Poll.
+     *
+     * @param fdsPtr the fds ptr
+     * @param nfds the nfds
+     * @param timeout the timeout
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int poll(Pointer fdsPtr, long nfds, int timeout) throws LastErrorException;
 
+    /**
+     * Pipe.
+     *
+     * @param fdsPtr the fds ptr
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int pipe(Pointer fdsPtr) throws LastErrorException;
     
+    /**
+     * Mmap.
+     *
+     * @param addr the addr
+     * @param length the length
+     * @param prot the prot
+     * @param flags the flags
+     * @param fd the fd
+     * @param offset the offset
+     * @return the pointer
+     * @throws LastErrorException the last error exception
+     */
     Pointer mmap(Pointer addr, long length, int prot, int flags, int fd, long offset) throws LastErrorException;
+    
+    /**
+     * Munmap.
+     *
+     * @param addr the addr
+     * @param length the length
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int munmap(Pointer addr, long length) throws LastErrorException;
 
     // FreeBSD
@@ -99,9 +185,50 @@ public interface CLibrary extends Library {
     public static final int CPU_WHICH_INTRHANDLER   = 7;       /* Specifies an irq # (not ithread). */
     public static final int CPU_WHICH_ITHREAD       = 8;       /* Specifies an irq's ithread. */
     
+    /**
+     * Thr self.
+     *
+     * @param id the id
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int thr_self(Pointer id) throws LastErrorException;
+    
+    /**
+     * Rtprio thread.
+     *
+     * @param function the function
+     * @param lwpid the lwpid
+     * @param rpt the rpt
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int rtprio_thread(int function, int lwpid, Pointer rpt) throws LastErrorException;
+    
+    /**
+     * Cpuset getaffinity.
+     *
+     * @param level the level
+     * @param which the which
+     * @param id the id
+     * @param setsize the setsize
+     * @param mask the mask
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int cpuset_getaffinity(int level, int which, long id, long setsize, Pointer mask) throws LastErrorException;
+    
+    /**
+     * Cpuset setaffinity.
+     *
+     * @param level the level
+     * @param which the which
+     * @param id the id
+     * @param setsize the setsize
+     * @param mask the mask
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int cpuset_setaffinity(int level, int which, long id, long setsize, Pointer mask) throws LastErrorException;
 
     // Linux
@@ -110,14 +237,72 @@ public interface CLibrary extends Library {
 	public static final int LINUX_SCHED_FIFO = 1;
 	public static final int LINUX_SCHED_RR = 2;
 	
+    /**
+     * Sched getparam.
+     *
+     * @param pid the pid
+     * @param param the param
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_getparam(int pid, Pointer param) throws LastErrorException;
+    
+    /**
+     * Sched setparam.
+     *
+     * @param pid the pid
+     * @param param the param
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_setparam(int pid, Pointer param) throws LastErrorException;
+    
+    /**
+     * Sched get priority max.
+     *
+     * @param policy the policy
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_get_priority_max(int policy) throws LastErrorException;
+    
+    /**
+     * Sched get priority min.
+     *
+     * @param policy the policy
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_get_priority_min(int policy) throws LastErrorException;
+    
+    /**
+     * Sched setscheduler.
+     *
+     * @param pid the pid
+     * @param policy the policy
+     * @param param the param
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_setscheduler(int pid, int policy, Pointer param) throws LastErrorException;
+    
+    /**
+     * Sched getscheduler.
+     *
+     * @param pid the pid
+     * @return the int
+     * @throws LastErrorException the last error exception
+     */
     int sched_getscheduler(int pid) throws LastErrorException;
     
     public static final long SYS_gettid = 186;
     
+    /**
+     * Syscall.
+     *
+     * @param number the number
+     * @param args the args
+     * @return the long
+     */
     long syscall(long number, Object ...args);
 }

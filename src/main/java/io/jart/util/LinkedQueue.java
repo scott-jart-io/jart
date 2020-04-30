@@ -34,12 +34,28 @@ import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 
-// simple thread safe queue that supports link pooling
+/**
+ * Simple thread safe LinkedQueue that can use link pooling.
+ *
+ * @param <T> the generic type
+ */
 public class LinkedQueue<T> extends AbstractQueue<T> {
-	// this type of pool is safe as long as it only "ticks" when no queue operations are in progress
+	
+	/**
+	 * Type of pool safe as long as it only "ticks" when no queue operations are in progress.
+	 */
 	public static class TickTockPoolHelper extends LinkedQueue<Object> {
+		
+		/**
+		 * Instantiates a new tick tock pool helper.
+		 */
 		private TickTockPoolHelper() {}
 
+		/**
+		 * Creates the link pool.
+		 *
+		 * @return the tick tock pool
+		 */
 		public static TickTockPool<?> createLinkPool() {
 			return new TickTockPool<Link>(Link::new, (Link link)->{
 				link.next.set(null);
@@ -48,30 +64,65 @@ public class LinkedQueue<T> extends AbstractQueue<T> {
 		}
 	}
 
+	/**
+	 * Link.
+	 */
 	protected static class Link {
 		public final AtomicReference<Link> next;
 		public Object value;
 		
+		/**
+		 * Instantiates a new link.
+		 */
 		public Link() {
 			this.next = new AtomicReference<Link>();
 		}
 
+		/**
+		 * Instantiates a new link.
+		 *
+		 * @param next the next
+		 * @param value the value
+		 */
 		public Link(Link next, Object value) {
 			this.next = new AtomicReference<Link>(next);
 			this.value = value;
 		}
 	}
 	
+	/**
+	 * Allocate link.
+	 *
+	 * @param next the next
+	 * @param value the value
+	 * @return the link
+	 */
 	protected Link allocLink(Link next, Object value) {
 		return new Link(next, value);
 	}
 	
+	/**
+	 * Free link.
+	 *
+	 * @param link the link
+	 */
 	protected void freeLink(Link link) {}
 	
+	/**
+	 * Null link.
+	 *
+	 * @return the link
+	 */
 	private Link nullLink() { // "null" links must be unique
 		return allocLink(null, null);
 	}
 	
+	/**
+	 * Checks if is null.
+	 *
+	 * @param link the link
+	 * @return true, if is null
+	 */
 	private static boolean isNull(Link link) {
 		return link == null || link.value == null;
 	}
@@ -79,6 +130,12 @@ public class LinkedQueue<T> extends AbstractQueue<T> {
 	private final AtomicReference<Link> head = new AtomicReference<Link>(new Link(null, null));
 	private final AtomicReference<Link> tail = new AtomicReference<Link>(head.get());
 
+	/**
+	 * Offer a value.
+	 *
+	 * @param e the e
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean offer(T e) {
 //			E1: node = new node() # Allocate a new node from the free list
@@ -120,6 +177,11 @@ public class LinkedQueue<T> extends AbstractQueue<T> {
 		return true;
 	}
 
+	/**
+	 * Poll a value.
+	 *
+	 * @return the t
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public T poll() {
@@ -171,16 +233,31 @@ public class LinkedQueue<T> extends AbstractQueue<T> {
 		return value;
 	}
 
+	/**
+	 * Unsupported.
+	 *
+	 * @return the t
+	 */
 	@Override
 	public T peek() {
 		throw new UnsupportedOperationException();
 	}
 
+	/**
+	 * Unsupported.
+	 *
+	 * @return the iterator
+	 */
 	@Override
 	public Iterator<T> iterator() {
 		throw new UnsupportedOperationException();
 	}
 
+	/**
+	 * Unsupported.
+	 *
+	 * @return the int
+	 */
 	@Override
 	public int size() {
 		throw new UnsupportedOperationException();

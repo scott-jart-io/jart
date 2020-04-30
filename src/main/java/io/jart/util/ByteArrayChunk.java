@@ -32,17 +32,32 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Implementation of ByteChunk in terms of a region of a byte[].
+ */
 public class ByteArrayChunk extends ByteChunk {
 	private byte[] chunk;
 	private int offs;
 	private int len;
 	
+	/**
+	 * Instantiates a new byte array chunk.
+	 *
+	 * @param chunk the chunk
+	 * @param offs the offs
+	 * @param len the len
+	 */
 	public ByteArrayChunk(byte[] chunk, int offs, int len) {
 		this.chunk = chunk;
 		this.offs = offs;
 		this.len = len;
 	}
 
+	/**
+	 * Put to a ByteBuffer.
+	 *
+	 * @param dst the dst
+	 */
 	@Override
 	public void putTo(ByteBuffer dst) {
 		dst.put(chunk, offs, len);

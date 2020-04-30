@@ -32,7 +32,23 @@ package io.jart.util;
 
 import io.jart.async.AsyncEventQueue;
 
+/**
+ * EventQueue interface.
+ */
 public interface EventQueue {
+	
+	/**
+	 * Removes the event.
+	 *
+	 * @param event the event
+	 */
 	public void remove(AsyncEventQueue.Event event);
+	
+	/**
+	 * Update an event.
+	 *
+	 * @param event the event
+	 * @param time the time
+	 */
 	public void update(AsyncEventQueue.Event event, long time);
 }

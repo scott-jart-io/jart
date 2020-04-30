@@ -32,12 +32,23 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Represent an abstract stream of bytes that can by chunked out to a ByteBuffer.
+ */
 public abstract class ByteChunker {
-	// put min(dst.remaining(), chunker.bytesLeft) to dst AND
-	// set chunkArray[chunkIndex] = a ByteChunk representing the bytes put to dst --
-	// return true if the chunker has more bytes left, false if not
-	// must not add empty chunks to chunkList!!
+	/**
+	 * Put min(dst.remaining(), chunker.bytesLeft) to dst AND
+	 * set chunkArray[chunkIndex] = a ByteChunk representing the bytes put to dst
+	 *
+	 * @param dst the dst
+	 * @param chunkArray the chunk array
+	 * @param chunkIndex the chunk index
+	 * @return true if the chunker has more bytes left, false if not.
+	 */
 	public abstract boolean chunkTo(ByteBuffer dst, ByteChunk[] chunkArray, int chunkIndex);
-	// dispose of any applicable resources
+	
+	/**
+	 * Dispose of any applicable resources.
+	 */
 	public void dispose() {}
 }

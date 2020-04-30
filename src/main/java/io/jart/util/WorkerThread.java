@@ -40,7 +40,9 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
 
-// a thread that executes runnables in FIFO order
+/**
+ * Worker thread. A combo Thread and Executor that executes runnables in FIFO order.
+ */
 public class WorkerThread extends Thread implements Executor {
 	private final static Logger logger = Logger.getLogger(WorkerThread.class);
 
@@ -53,18 +55,34 @@ public class WorkerThread extends Thread implements Executor {
 	protected final AtomicInteger state = new AtomicInteger();
 	protected final Deque<Runnable> dq = newDeque();
 
+	/**
+	 * Instantiates a new worker thread.
+	 */
 	public WorkerThread() {
 		setDaemon(true);
 	}
 	
+	/**
+	 * New deque.
+	 *
+	 * @return the deque
+	 */
 	protected Deque<Runnable> newDeque() {
 		return new ConcurrentLinkedDeque<Runnable>();
 	}
 
+	/**
+	 * Handle uncaught exception.
+	 *
+	 * @param th the th
+	 */
 	protected void uncaughtException(Throwable th) {
 		logger.error("worker thread command threw", th);
 	}
 
+	/**
+	 * Do work.
+	 */
 	protected void work() {
 		for(;;) {
 			Runnable r = dq.pollLast();
@@ -75,6 +93,11 @@ public class WorkerThread extends Thread implements Executor {
 		}
 	}
 
+	/**
+	 * Wake thread.
+	 *
+	 * @return true, if successful
+	 */
 	protected boolean wake() {
 		if(state.getAndSet(WAKING) == WAITING) {
 			lock.lock();
@@ -89,6 +112,9 @@ public class WorkerThread extends Thread implements Executor {
 		return false;
 	}
 	
+	/**
+	 * Thread main.
+	 */
 	@Override
 	public void run() {
 		for(;;) {
@@ -116,6 +142,11 @@ public class WorkerThread extends Thread implements Executor {
 		}
 	}
 
+	/**
+	 * Submit a command for execution.
+	 *
+	 * @param command the command
+	 */
 	@Override
 	public void execute(Runnable command) {
 		dq.offerFirst(command);

@@ -33,19 +33,36 @@ package io.jart.util;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// executes/forks affinity round robin across an array of executors
+/**
+ * Wraps an array of Executors in an Executor that delegates execute() to wrapped Executors in round robin order.
+ */
 public class RoundRobinExecutor implements Executor {
 	private final Executor[] execs;
 	private final AtomicInteger rr = new AtomicInteger();
 	
+	/**
+	 * Instantiates a new round robin executor.
+	 *
+	 * @param execs the execs
+	 */
 	public RoundRobinExecutor(Executor[] execs) {
 		this.execs = execs;
 	}
 
+	/**
+	 * Next executor.
+	 *
+	 * @return the executor
+	 */
 	private Executor nextExecutor() {
 		return execs[rr.getAndIncrement() % execs.length];
 	}
 	
+	/**
+	 * Execute a command.
+	 *
+	 * @param command the command
+	 */
 	@Override
 	public void execute(Runnable command) {
 		nextExecutor().execute(command);

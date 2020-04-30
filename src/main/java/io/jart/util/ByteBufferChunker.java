@@ -32,17 +32,34 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+// TODO: Auto-generated Javadoc
+/**
+ * ByteChunker implementation in terms of a ByteBuffer.
+ */
 public class ByteBufferChunker extends ByteChunker {
 	private final ByteBuffer buf;
 	private int pos;
 	private final int limit;
 	
+	/**
+	 * Instantiates a new byte buffer chunker.
+	 *
+	 * @param buf the buf
+	 */
 	public ByteBufferChunker(ByteBuffer buf) {
 		this.buf = buf;
 		this.pos = buf.position();
 		this.limit = buf.limit();
 	}
 
+	/**
+	 * Chunk to a given ByteBuffer and record new ByteChunk to chunkArray[chunkIndex].
+	 *
+	 * @param dst the dst
+	 * @param chunkArray the chunk array
+	 * @param chunkIndex the chunk index
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean chunkTo(ByteBuffer dst, ByteChunk[] chunkArray, int chunkIndex) {
 		int plen = Math.min(limit - pos, dst.remaining());

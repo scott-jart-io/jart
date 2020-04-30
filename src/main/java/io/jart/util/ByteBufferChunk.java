@@ -32,17 +32,30 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+/**
+ * ByteChunk implementation in terms of a region of a ByteBuffer.
+ */
 public class ByteBufferChunk extends ByteChunk {
 	private final ByteBuffer buf;
 	private final int pos;
 	private final int limit;
 	
+	/**
+	 * Instantiates a new byte buffer chunk.
+	 *
+	 * @param buf the buf
+	 */
 	public ByteBufferChunk(ByteBuffer buf) {
 		this.buf = buf;
 		this.pos = buf.position();
 		this.limit = buf.limit();
 	}
 
+	/**
+	 * Put to a ByteBuffer.
+	 *
+	 * @param dst the dst
+	 */
 	@Override
 	public void putTo(ByteBuffer dst) {
 		buf.limit(limit);
@@ -50,5 +63,4 @@ public class ByteBufferChunk extends ByteChunk {
 		dst.put(buf);
 
 	}
-
 }

@@ -32,8 +32,19 @@ package io.jart.util;
 
 import java.util.function.Supplier;
 
+/**
+ * CircularBuffer-based pool.
+ *
+ * @param <T> the generic type
+ */
 public class CircularPool<T> extends CircularBuffer<T> {
 
+	/**
+	 * Instantiates a new circular pool.
+	 *
+	 * @param n the n
+	 * @param supplier the supplier
+	 */
 	public CircularPool(int n, Supplier<T> supplier) {
 		super(n * 3);
 		for(int i = 0; i < n * 2; i++)

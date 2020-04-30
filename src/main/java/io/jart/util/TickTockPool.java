@@ -35,13 +35,28 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+/**
+ * Pool that re-uses object freed in a previous cycle.
+ *
+ * @param <T> the generic type
+ */
 public class TickTockPool<T> implements Supplier<T>, Consumer<T> {
+	
+	/**
+	 * Current state.
+	 */
 	private static class State {
 		public final AtomicInteger allocCount = new AtomicInteger();
 		public final Object[] alloc;
 		public final AtomicInteger freeCount = new AtomicInteger();
 		public final AtomicReferenceArray<Object> free;
 		
+		/**
+		 * Instantiates a new state.
+		 *
+		 * @param alloc the alloc
+		 * @param freeCount the free count
+		 */
 		public State(Object[] alloc, int freeCount) {
 			this.alloc = alloc;
 			this.free = new AtomicReferenceArray<Object>(freeCount);
@@ -55,6 +70,12 @@ public class TickTockPool<T> implements Supplier<T>, Consumer<T> {
 	private volatile State state;
 	private int lastAllocCount, lastFreeCount;
 	
+	/**
+	 * Instantiates a new tick tock pool.
+	 *
+	 * @param supplier the supplier
+	 * @param cleaner the cleaner
+	 */
 	@SuppressWarnings("unchecked")
 	public TickTockPool(Supplier<T> supplier, Consumer<T> cleaner) {
 		this.supplier = supplier;
@@ -62,10 +83,20 @@ public class TickTockPool<T> implements Supplier<T>, Consumer<T> {
 		this.cleaner = (cleaner == null) ? noopCleaner : (Consumer<Object>) cleaner;
 	}
 	
+	/**
+	 * Instantiates a new tick tock pool.
+	 *
+	 * @param supplier the supplier
+	 */
 	public TickTockPool(Supplier<T> supplier) {
 		this(supplier, null);
 	}
 	
+	/**
+	 * Allocate a new object.
+	 *
+	 * @return the t
+	 */
 	@SuppressWarnings("unchecked")
 	@Override
 	public T get() {
@@ -78,6 +109,11 @@ public class TickTockPool<T> implements Supplier<T>, Consumer<T> {
 			return supplier.get();
 	}
 	
+	/**
+	 * Free an object we're done with.
+	 *
+	 * @param t the t
+	 */
 	public void accept(T t) {
 		State state = this.state;
 		int n = state.freeCount.getAndIncrement();
@@ -86,6 +122,9 @@ public class TickTockPool<T> implements Supplier<T>, Consumer<T> {
 			state.free.set(n, t);
 	}
 	
+	/**
+	 * Tick. Allow reuse anything freed prior to tick() invocation.
+	 */
 	public void tick() {
 		State curState = state;
 		

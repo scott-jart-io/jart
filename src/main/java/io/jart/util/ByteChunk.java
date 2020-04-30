@@ -32,9 +32,20 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Represents an abstract chunk of bytes that can be putTo a given ByteBuffer.
+ */
 public abstract class ByteChunk {
-	// put a chunk of bytes to dst -- can assume there's enough room
+	
+	/**
+	 * Put a chunk of bytes to dst -- can assume there's enough room.
+	 *
+	 * @param dst the dst
+	 */
 	public abstract void putTo(ByteBuffer dst);
-	// clean up any applicable resources
+	
+	/**
+	 * Clean up any applicable resources.
+	 */
 	public void dispose() {}
 }

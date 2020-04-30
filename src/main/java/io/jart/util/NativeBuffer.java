@@ -35,16 +35,31 @@ import java.nio.ByteOrder;
 import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 
+/**
+ * Native buffer for native interop.
+ * Both Pointer and ByteBuffer representations.
+ */
 public class NativeBuffer {
 	public final Pointer ptr;
 	public final ByteBuffer buf;
 	
+	/**
+	 * Instantiates a new native buffer.
+	 *
+	 * @param size the size
+	 */
 	public NativeBuffer(long size) {
 		this.ptr = new Memory(size);
 		this.ptr.clear(size);
 		this.buf = this.ptr.getByteBuffer(0, size).order(ByteOrder.nativeOrder());
 	}
 	
+	/**
+	 * Instantiates a new native buffer.
+	 *
+	 * @param ptr the ptr
+	 * @param size the size
+	 */
 	public NativeBuffer(Pointer ptr, long size) {
 		this.ptr = ptr;
 		this.buf = ptr.getByteBuffer(0, size).order(ByteOrder.nativeOrder());

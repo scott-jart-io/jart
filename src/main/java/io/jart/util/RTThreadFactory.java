@@ -36,9 +36,17 @@ import org.apache.log4j.Logger;
 
 import com.sun.jna.Memory;
 
+/**
+ * A ThreadFactory factory for creating Threads running at real time priority.
+ */
 public class RTThreadFactory implements ThreadFactory {
 	private final static Logger logger = Logger.getLogger(ThreadFactory.class);
 
+	/**
+	 * Sets the RT prio.
+	 *
+	 * @return true, if successful
+	 */
 	public static boolean setRTPrio() {
 		try {
 			if(Misc.IS_FREEBSD) {
@@ -69,6 +77,12 @@ public class RTThreadFactory implements ThreadFactory {
 		}
 	}
 	
+	/**
+	 * Wrap a Runnable such that run() will first try to elevate to real time priority before calling wrapped Runnable run.
+	 *
+	 * @param r the r
+	 * @return the runnable
+	 */
 	public static Runnable wrap(Runnable r) {
 		return new Runnable() {
 			@Override
@@ -79,6 +93,12 @@ public class RTThreadFactory implements ThreadFactory {
 		};
 	}
 	
+	/**
+	 * New thread for a given Runnable.
+	 *
+	 * @param r the r
+	 * @return the thread
+	 */
 	@Override
 	public Thread newThread(Runnable r) {
 		return new Thread(wrap(r));

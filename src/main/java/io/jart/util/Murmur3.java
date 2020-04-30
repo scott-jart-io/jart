@@ -27,7 +27,7 @@ package io.jart.util;
 
 /**
  * See http://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp
- * MurmurHash3_x86_32
+ * MurmurHash3_x86_32 helper class
  *
  * @author Austin Appleby
  * @author Dimitris Andreou
@@ -39,6 +39,14 @@ public final class Murmur3 {
 	private static final int C1 = 0xcc9e2d51;
 	private static final int C2 = 0x1b873593;
 
+	private Murmur3() {} // hide constructor
+	
+	/**
+	 * Hash int. 0 always hashes to 0.
+	 *
+	 * @param input the input
+	 * @return the hash code
+	 */
 	public static int hashInt(int input){
 		if(input == 0) return 0;
 		int k1 = mixK1(input);
@@ -47,6 +55,12 @@ public final class Murmur3 {
 		return fmix(h1, 4);
 	}
 
+	/**
+	 * Hash long. 0 always hashes to 0.
+	 *
+	 * @param input the input
+	 * @return the hash code
+	 */
 	public static int hashLong(long input){
 		if(input == 0) return 0;
 		int low = (int) input;
@@ -61,6 +75,12 @@ public final class Murmur3 {
 		return fmix(h1, 8);
 	}
 
+	/**
+	 * Hash unencoded chars.
+	 *
+	 * @param input the input
+	 * @return the int
+	 */
 	public static int hashUnencodedChars(CharSequence input){
 		int h1 = seed;
 
@@ -83,6 +103,12 @@ public final class Murmur3 {
 		return fmix(h1, 2 * input.length());
 	}
 
+	/**
+	 * Mix K 1.
+	 *
+	 * @param k1 the k 1
+	 * @return the int
+	 */
 	public static int mixK1(int k1){
 		k1 *= C1;
 		k1 = Integer.rotateLeft(k1, 15);
@@ -90,6 +116,13 @@ public final class Murmur3 {
 		return k1;
 	}
 
+	/**
+	 * Mix H 1.
+	 *
+	 * @param h1 the h 1
+	 * @param k1 the k 1
+	 * @return the int
+	 */
 	public static int mixH1(int h1, int k1){
 		h1 ^= k1;
 		h1 = Integer.rotateLeft(h1, 13);
@@ -97,6 +130,13 @@ public final class Murmur3 {
 		return h1;
 	}
 
+	/**
+	 * Fmix.
+	 *
+	 * @param h1 the h 1
+	 * @param length the length
+	 * @return the int
+	 */
 	// Finalization mix - force all bits of a hash block to avalanche
 	public static int fmix(int h1, int length){
 		h1 ^= length;
@@ -108,7 +148,13 @@ public final class Murmur3 {
 			return h1;
 	}
 
-	// Finalization mix - force all bits of a hash block to avalanche (java-specific)
+	/**
+	 * Finalization mix - force all bits of a hash block to avalanche (java-specific).
+	 *
+	 * @param h1 the h 1
+	 * @param length the length
+	 * @return the int
+	 */
 	public static int fmixj(int h1, int length){
 		h1 ^= length;
 		h1 ^= h1 >>> 16;

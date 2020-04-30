@@ -31,33 +31,86 @@
 package io.jart.util;
 import java.nio.ByteBuffer;
 
+/**
+ * Helper class for PollFD.
+ */
 public class PollFD {
 	public static final int SIZE = 8;
 	
+	private PollFD() {} // hide constructor
+	
+	/**
+	 * Allocate for n file descriptors.
+	 *
+	 * @param n the n
+	 * @return the native buffer
+	 */
 	public static NativeBuffer allocate(int n) {
 		return new NativeBuffer(n * SIZE);
 	}
 	
+	/**
+	 * Gets the fd at the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @return the fd
+	 */
 	public static int getFD(ByteBuffer b, int i) {
 		return b.getInt(i * SIZE);
 	}
 	
+	/**
+	 * Sets the FD at the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @param fd the fd
+	 */
 	public static void setFD(ByteBuffer b, int i, int fd) {
 		b.putInt(i * SIZE, fd);
 	}
 	
+	/**
+	 * Gets the events for the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @return the events
+	 */
 	public static short getEvents(ByteBuffer b, int i) {
 		return b.getShort(i * SIZE + 4);
 	}
 	
+	/**
+	 * Sets the events for the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @param events the events
+	 */
 	public static void setEvents(ByteBuffer b, int i, int events) {
 		b.putShort(i * SIZE + 4, (short)events);
 	}
 
+	/**
+	 * Gets the r events for the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @return the r events
+	 */
 	public static short getREvents(ByteBuffer b, int i) {
 		return b.getShort(i * SIZE + 6);
 	}
 	
+	/**
+	 * Sets the R events for the given index.
+	 *
+	 * @param b the ByteBuffer for the PollFD
+	 * @param i the i
+	 * @param revents the revents
+	 */
 	public static void setREvents(ByteBuffer b, int i, int revents) {
 		b.putShort(i * SIZE + 6, (short)revents);
 	}

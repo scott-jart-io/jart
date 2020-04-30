@@ -32,17 +32,35 @@ package io.jart.util;
 
 import java.nio.ByteBuffer;
 
+/**
+ * ByteChunker implementation in terms of a region of a byte[].
+ */
 public class ByteArrayChunker extends ByteChunker {
 	private byte[] chunk;
 	private int offs;
 	private int len;
 	
+	/**
+	 * Instantiates a new byte array chunker.
+	 *
+	 * @param chunk the chunk
+	 * @param offs the offs
+	 * @param len the len
+	 */
 	public ByteArrayChunker(byte[] chunk, int offs, int len) {
 		this.chunk = chunk;
 		this.offs = offs;
 		this.len = len;
 	}
 
+	/**
+	 * Chunk to a given ByteBuffer and record new ByteChunk to chunkArray[chunkIndex].
+	 *
+	 * @param dst the dst
+	 * @param chunkArray the chunk array
+	 * @param chunkIndex the chunk index
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean chunkTo(ByteBuffer dst, ByteChunk[] chunkArray, int chunkIndex) {
 		int plen = Math.min(len, dst.remaining());

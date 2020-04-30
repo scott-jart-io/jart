@@ -33,15 +33,36 @@ package io.jart.util;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
+/**
+ * BitSet-like object using a NativeBuffer for native interop.
+ */
 public class NativeBitSet extends NativeBuffer {
+	
+	/**
+	 * Instantiates a new native bit set.
+	 *
+	 * @param size the size
+	 */
 	public NativeBitSet(long size) {
 		super((size + NativeLong.SIZE - 1) / NativeLong.SIZE);
 	}
 
+	/**
+	 * Instantiates a new native bit set.
+	 *
+	 * @param ptr the ptr
+	 * @param size the size
+	 */
 	public NativeBitSet(Pointer ptr, long size) {
 		super(ptr, (size + NativeLong.SIZE - 1) / NativeLong.SIZE);
 	}
 	
+	/**
+	 * Checks if bit at give offset is set.
+	 *
+	 * @param offset the offset
+	 * @return true, if is sets the
+	 */
 	public boolean isSet(int offset) {
 		switch(NativeLong.SIZE) {
 		default:
@@ -53,6 +74,11 @@ public class NativeBitSet extends NativeBuffer {
 		}
 	}
 	
+	/**
+	 * Sets the bit at the given offset.
+	 *
+	 * @param offset the offset
+	 */
 	public void set(int offset) {
 		switch(NativeLong.SIZE) {
 		default:
