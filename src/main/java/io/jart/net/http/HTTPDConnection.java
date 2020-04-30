@@ -52,6 +52,9 @@ import io.jart.net.TcpContext;
 import io.jart.netmap.bridge.MsgRelay;
 import io.jart.util.EventQueue;
 
+/**
+ * Simple, WIP-quality httpd connection.
+ */
 public abstract class HTTPDConnection extends TcpConnection {
 	private static final Logger logger = Logger.getLogger(HTTPDConnection.class);
 	private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O");
@@ -59,39 +62,88 @@ public abstract class HTTPDConnection extends TcpConnection {
 	
 	protected static final byte[] crlf = new byte[] { (byte)'\r', (byte)'\n' };
 
+	/**
+	 * Exceptions holding HTTP error info.
+	 */
 	@SuppressWarnings("serial")
 	protected static class HTTPError extends Exception {
 		public final int status;
 		
+		/**
+		 * Instantiates a new HTTP error.
+		 *
+		 * @param status the status
+		 * @param msg the msg
+		 */
 		public HTTPError(int status, String msg) {
 			super(msg);
 			this.status = status;
 		}
 
+		/**
+		 * Instantiates a new HTTP error.
+		 *
+		 * @param status the status
+		 * @param msg the msg
+		 * @param cause the cause
+		 */
 		public HTTPError(int status, String msg, Throwable cause) {
 			super(msg, cause);
 			this.status = status;
 		}
 	}
 
+	/**
+	 * One HTTP Header.
+	 */
 	protected static class Header {
 		public final String name;
 		public final String value;
 		
+		/**
+		 * Instantiates a new header.
+		 *
+		 * @param name the name
+		 * @param value the value
+		 */
 		public Header(String name, String value) {
 			this.name = name;
 			this.value = value;
 		}
 		
+		/**
+		 * To string.
+		 *
+		 * @return the string
+		 */
 		public String toString() {
 			return name + ": " + value;
 		}
 	}
 
+	/**
+	 * Instantiates a new HTTPD connection.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param eventQueue the event queue
+	 * @param msgRelay the msg relay
+	 * @param startSeqNum the start seq num
+	 * @param exec the Executor for tcp work
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public HTTPDConnection(TcpContext tcpContext, int mss, EventQueue eventQueue, MsgRelay msgRelay, int startSeqNum, Executor exec, Executor connExec) {
 		super(tcpContext, mss, eventQueue, msgRelay, startSeqNum, exec, connExec);
 	}
 
+	/**
+	 * Send response header.
+	 *
+	 * @param status the status
+	 * @param msg the msg
+	 * @param headers the headers
+	 * @return the completable future
+	 */
 	protected CompletableFuture<Void> sendResponseHeader(int status, String msg, Iterable<? extends CharSequence> headers) {
 		AsyncByteWriter writer = getWriter();
 		String baseStr = "HTTP/1.1 " + status + " " + msg + "\r\n" +
@@ -108,6 +160,12 @@ public abstract class HTTPDConnection extends TcpConnection {
 		return writer.write(crlf);
 	}
 	
+	/**
+	 * Write an error response.
+	 *
+	 * @param error the error
+	 * @return the completable future
+	 */
 	protected CompletableFuture<Void> error(HTTPError error) {
 		Throwable cause = error.getCause();
 		List<String> headers;
@@ -123,6 +181,14 @@ public abstract class HTTPDConnection extends TcpConnection {
 		return sendResponseHeader(error.status, error.getMessage(), headers);
 	}
 	
+	/**
+	 * Read a line.
+	 *
+	 * @param buf the buf
+	 * @param offset the offset
+	 * @param len the len
+	 * @return the completable future
+	 */
 	protected CompletableFuture<String> readLine(byte[] buf, int[] offset, int[] len) {
 		int startOffs = offset[0];
 		int n = Async.await(getReader().read(buf, offset[0], len[0], (byte)'\n'));
@@ -140,8 +206,22 @@ public abstract class HTTPDConnection extends TcpConnection {
 		return CompletableFuture.completedFuture(new String(buf, startOffs, endOffs - startOffs, StandardCharsets.UTF_8));
 	}
 	
+	/**
+	 * Implement a method to serve the http request.
+	 *
+	 * @param verb the verb
+	 * @param url the url
+	 * @param headers the headers
+	 * @return the completable future
+	 * @throws Exception the exception
+	 */
 	protected abstract CompletableFuture<Void> serve(String verb, String url, Header[] headers) throws Exception;
 	
+	/**
+	 * Connection main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	protected CompletableFuture<Void> connectionRun() {
 		try {

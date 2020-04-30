@@ -35,13 +35,29 @@ import java.nio.charset.StandardCharsets;
 import io.jart.util.CLibrary;
 import io.jart.util.NativeBuffer;
 
+/**
+ * Helper class for NMReqs.
+ */
 public class NMReq {
 	public static final int SIZE = 60;
 
+	private NMReq() {} // hide constructor
+	
+	/**
+	 * Allocate.
+	 *
+	 * @return the native buffer
+	 */
 	public static NativeBuffer allocate() {
 		return new NativeBuffer(SIZE);
 	}
 
+	/**
+	 * Gets the name.
+	 *
+	 * @param b the b
+	 * @return the name
+	 */
 	public static String getName(ByteBuffer b) {
 		byte[] bytes = new byte[CLibrary.IFNAMSIZE];
 
@@ -56,6 +72,12 @@ public class NMReq {
 		return new String(bytes, 0, len, StandardCharsets.UTF_8);
 	}
 
+	/**
+	 * Sets the name.
+	 *
+	 * @param b the b
+	 * @param s the s
+	 */
 	public static void setName(ByteBuffer b, String s) {
 		byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
 
@@ -68,106 +90,262 @@ public class NMReq {
 			b.put(bytes, 0, CLibrary.IFNAMSIZE);
 	}
 
+	/**
+	 * Gets the version.
+	 *
+	 * @param b the b
+	 * @return the version
+	 */
 	public static int getVersion(ByteBuffer b) {
 		return b.getInt(16);
 	}
 
+	/**
+	 * Sets the version.
+	 *
+	 * @param b the b
+	 * @param version the version
+	 */
 	public static void setVersion(ByteBuffer b, int version) {
 		b.putInt(16, version);
 	}
 
+	/**
+	 * Gets the offset.
+	 *
+	 * @param b the b
+	 * @return the offset
+	 */
 	public static long getOffset(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(20);
 	}
 
+	/**
+	 * Sets the offset.
+	 *
+	 * @param b the b
+	 * @param offset the offset
+	 */
 	public static void setOffset(ByteBuffer b, long offset) {
 		b.putInt(20, (int)offset);
 	}
 
+	/**
+	 * Gets the memsize.
+	 *
+	 * @param b the b
+	 * @return the memsize
+	 */
 	public static long getMemsize(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(24);
 	}
 
+	/**
+	 * Sets the memsize.
+	 *
+	 * @param b the b
+	 * @param size the size
+	 */
 	public static void setMemsize(ByteBuffer b, long size) {
 		b.putInt(24, (int)size);
 	}
 
+	/**
+	 * Gets the TX slots.
+	 *
+	 * @param b the b
+	 * @return the TX slots
+	 */
 	public static long getTXSlots(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(28);
 	}
 
+	/**
+	 * Sets the TX slots.
+	 *
+	 * @param b the b
+	 * @param slots the slots
+	 */
 	public static void setTXSlots(ByteBuffer b, long slots) {
 		b.putInt(28, (int)slots);
 	}
 
+	/**
+	 * Gets the RX slots.
+	 *
+	 * @param b the b
+	 * @return the RX slots
+	 */
 	public static long getRXSlots(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(32);
 	}
 
+	/**
+	 * Sets the RX slots.
+	 *
+	 * @param b the b
+	 * @param slots the slots
+	 */
 	public static void setRXSlots(ByteBuffer b, long slots) {
 		b.putInt(32, (int)slots);
 	}
 
+	/**
+	 * Gets the TX rings.
+	 *
+	 * @param b the b
+	 * @return the TX rings
+	 */
 	public static int getTXRings(ByteBuffer b) {
 		return 0xffff & b.getShort(36);
 	}
 
+	/**
+	 * Sets the TX rings.
+	 *
+	 * @param b the b
+	 * @param rings the rings
+	 */
 	public static void setTXRings(ByteBuffer b, int rings) {
 		b.putShort(36, (short)rings);
 	}
 
+	/**
+	 * Gets the RX rings.
+	 *
+	 * @param b the b
+	 * @return the RX rings
+	 */
 	public static int getRXRings(ByteBuffer b) {
 		return 0xffff & b.getShort(38);
 	}
 
+	/**
+	 * Sets the RX rings.
+	 *
+	 * @param b the b
+	 * @param rings the rings
+	 */
 	public static void setRXRings(ByteBuffer b, int rings) {
 		b.putShort(38, (short)rings);
 	}
 
+	/**
+	 * Gets the ring id.
+	 *
+	 * @param b the b
+	 * @return the ring id
+	 */
 	public static int getRingId(ByteBuffer b) {
 		return 0xffff & b.getShort(40);
 	}
 
+	/**
+	 * Sets the ring id.
+	 *
+	 * @param b the b
+	 * @param ringId the ring id
+	 */
 	public static void setRingId(ByteBuffer b, int ringId) {
 		b.putShort(40, (short)ringId);
 	}
 
+	/**
+	 * Gets the cmd.
+	 *
+	 * @param b the b
+	 * @return the cmd
+	 */
 	public static int getCmd(ByteBuffer b) {
 		return 0xffff & b.getShort(42);
 	}
 
+	/**
+	 * Sets the cmd.
+	 *
+	 * @param b the b
+	 * @param cmd the cmd
+	 */
 	public static void setCmd(ByteBuffer b, int cmd) {
 		b.putShort(42, (short)cmd);
 	}
 
+	/**
+	 * Gets the arg 1.
+	 *
+	 * @param b the b
+	 * @return the arg 1
+	 */
 	public static int getArg1(ByteBuffer b) {
 		return 0xffff & b.getShort(44);
 	}
 
+	/**
+	 * Sets the arg 1.
+	 *
+	 * @param b the b
+	 * @param arg the arg
+	 */
 	public static void setArg1(ByteBuffer b, int arg) {
 		b.putShort(44, (short)arg);
 	}
 
+	/**
+	 * Gets the arg 2.
+	 *
+	 * @param b the b
+	 * @return the arg 2
+	 */
 	public static int getArg2(ByteBuffer b) {
 		return 0xffff & b.getShort(46);
 	}
 
+	/**
+	 * Sets the arg 2.
+	 *
+	 * @param b the b
+	 * @param arg the arg
+	 */
 	public static void setArg2(ByteBuffer b, int arg) {
 		b.putShort(46, (short)arg);
 	}
 
+	/**
+	 * Gets the arg 3.
+	 *
+	 * @param b the b
+	 * @return the arg 3
+	 */
 	public static long getArg3(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(48);
 	}
 
+	/**
+	 * Sets the arg 3.
+	 *
+	 * @param b the b
+	 * @param arg the arg
+	 */
 	public static void setArg3(ByteBuffer b, long arg) {
 		b.putInt(48, (int)arg);
 	}
 
+	/**
+	 * Gets the flags.
+	 *
+	 * @param b the b
+	 * @return the flags
+	 */
 	public static int getFlags(ByteBuffer b) {
 		return b.getInt(52);
 	}
 
+	/**
+	 * Sets the flags.
+	 *
+	 * @param b the b
+	 * @param flags the flags
+	 */
 	public static void setFlags(ByteBuffer b, int flags) {
 		b.putInt(52, flags);
 	}

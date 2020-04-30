@@ -51,22 +51,40 @@ import io.jart.util.NativeBuffer;
 import io.jart.util.PollFD;
 import io.jart.util.ThreadAffinityExecutor;
 
-// handle synchronized polling of two netmappings, dependent tasks, msg relay requests, and timed events
+/**
+ * Handle synchronized polling of two Netmappings, dependent tasks, msg relay requests, and timed events.
+ */
 public class BridgeTask implements AsyncRunnable {
 	private final static Logger logger = Logger.getLogger(BridgeTask.class);
 
+	/**
+	 * Helper to wake up the BridgeTask safely from outside.
+	 */
 	public static class Waker {
 		private final AsyncPipe<BridgeMsg> bridgePipe;
 		private final int wakeupFd;
 		private final AtomicInteger bridgeState;
 		private final Memory wakeupByte = new Memory(1);
 		
+		/**
+		 * Instantiates a new waker.
+		 *
+		 * @param bridgePipe the bridge pipe
+		 * @param wakeupFd the wakeup fd
+		 * @param bridgeState the bridge state
+		 */
 		public Waker(AsyncPipe<BridgeMsg> bridgePipe, int wakeupFd, AtomicInteger bridgeState) {
 			this.bridgePipe = bridgePipe;
 			this.wakeupFd = wakeupFd;
 			this.bridgeState = bridgeState;
 		}
 		
+		/**
+		 * Wake up the BridgeTask with a given message.
+		 *
+		 * @param <T> the generic type
+		 * @param msg the msg
+		 */
 		// send a waking message (will interrupt a blocking poll)
 		public <T extends BridgeReq> void wake(T msg) {
 			bridgePipe.write(msg);
@@ -76,6 +94,9 @@ public class BridgeTask implements AsyncRunnable {
 		}
 	}
 	
+	/**
+	 * Contextual information about the running BridgeTask.
+	 */
 	public static class Context {
 		// bridge's pipe -- send bridge messages here
 		public final AsyncPipe<BridgeMsg> pipe;
@@ -91,6 +112,16 @@ public class BridgeTask implements AsyncRunnable {
 		// executor used by the bridge task
 		public final Executor exec;
 	
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param pipe the pipe
+		 * @param taskPipeGroup the task pipe group
+		 * @param taskQueue the task queue
+		 * @param nopMsg the nop msg
+		 * @param waker the waker
+		 * @param exec the exec
+		 */
 		public Context(AsyncPipe<BridgeMsg> pipe, AsyncPipe.Group taskPipeGroup, Queue<AsyncRunnable> taskQueue, BridgeMsg nopMsg, Waker waker, Executor exec) {
 			this.pipe = pipe;
 			this.taskPipeGroup = taskPipeGroup;
@@ -101,24 +132,45 @@ public class BridgeTask implements AsyncRunnable {
 		}
 	}
 
+	/**
+	 * Base for all BridgeTask messages.
+	 */
 	public static class BridgeMsg {
 	}
 
+	/**
+	 * Base class for requests to the BridgeTask.
+	 */
 	public static class BridgeReq extends BridgeMsg {
 	}
 
+	/**
+	 * Base class for responses from the BridgeTask.
+	 */
 	public static class BridgeResp extends BridgeMsg {
 	}
 
+	/**
+	 * Message sent to use to indicate quiescence of dependent tasks.
+	 */
 	static class BridgeQuiescenceMsg extends BridgeMsg {
 	}
 
-	// request tx or tx on a netmapping
+	/**
+	 * Request tx or tx on a Netmapping.
+	 */
 	public static class BridgeXReq extends BridgeReq {
 		public final AsyncPipe<? super BridgeXResp> pipe;
 		public final boolean rx;
 		public final Netmapping nm;
 	
+		/**
+		 * Instantiates a new bridge X req.
+		 *
+		 * @param pipe the pipe on which to respond when tx or rx was completed
+		 * @param rx the rx
+		 * @param nm the Netmapping
+		 */
 		public BridgeXReq(AsyncPipe<? super BridgeXResp> pipe, boolean rx, Netmapping nm) {
 			this.pipe = pipe;
 			this.rx = rx;
@@ -126,40 +178,76 @@ public class BridgeTask implements AsyncRunnable {
 		}
 	}
 
+	/**
+	 * Response sent when BridgeXReq is fulfilled.
+	 */
 	public static class BridgeXResp extends BridgeResp {
 	}
 
-	// request a message be relayed to a task when safe
+	/**
+	 * Request a message be relayed to a dependent task when safe.
+	 *
+	 * @param <T> the generic type
+	 */
 	public static class BridgeRelayReq<T> extends BridgeReq {
 		public final AsyncPipe<? super T> pipe;
 		public final T msg;
 	
+		/**
+		 * Instantiates a new bridge relay req.
+		 *
+		 * @param pipe the pipe on which to send the message when safe
+		 * @param msg the msg
+		 */
 		public BridgeRelayReq(AsyncPipe<? super T> pipe, T msg) {
 			this.pipe = pipe;
 			this.msg = msg;
 		}
 	}
 
-	// base class for event-related requests
+	/**
+	 * Base class for event-related requests.
+	 */
 	public static class BridgeEventQueueReq extends BridgeReq {
 		public final AsyncEventQueue.Event event;
 		
+		/**
+		 * Instantiates a new bridge event queue req.
+		 *
+		 * @param event the event
+		 */
 		protected BridgeEventQueueReq(AsyncEventQueue.Event event) {
 			this.event = event;
 		}
 	}
 	
-	// request that an event be removed from the event queue
+	/**
+	 * Request that an event be removed from the event queue.
+	 */
 	public static class BridgeEventQueueRemoveReq extends BridgeEventQueueReq {
+		
+		/**
+		 * Instantiates a new bridge event queue remove req.
+		 *
+		 * @param event the event
+		 */
 		public BridgeEventQueueRemoveReq(AsyncEventQueue.Event event) {
 			super(event);
 		}
 	}
 	
-	// request that an event be updated (/added)
+	/**
+	 * Request that an event be updated (/added).
+	 */
 	public static class BridgeEventQueueUpdateReq extends BridgeEventQueueReq {
 		public final long time;
 		
+		/**
+		 * Instantiates a new bridge event queue update req.
+		 *
+		 * @param event the event
+		 * @param time the time
+		 */
 		public BridgeEventQueueUpdateReq(AsyncEventQueue.Event event, long time) {
 			super(event);
 			this.time = time;
@@ -180,6 +268,14 @@ public class BridgeTask implements AsyncRunnable {
 
 	public final CompletableFuture<Context> context = new CompletableFuture<Context>();
 
+	/**
+	 * Instantiates a new bridge task.
+	 *
+	 * @param a the "a" Netmapping
+	 * @param b the "b" Netmapping
+	 * @param pollCount the poll count -- incremented each time a poll is completed
+	 * @param exec the Executor to run on
+	 */
 	public BridgeTask(Netmapping a, Netmapping b, AtomicInteger pollCount, Executor exec) {
 		this.a = a;
 		this.b = b;
@@ -187,10 +283,22 @@ public class BridgeTask implements AsyncRunnable {
 		this.exec = new ThreadAffinityExecutor(exec);
 	}
 
+	/**
+	 * Instantiates a new bridge task with a default Executor.
+	 * 
+	 * @param a the "a" Netmapping
+	 * @param b the "b" Netmapping
+	 * @param pollCount the poll count -- incremented each time a poll is completed
+	 */
 	public BridgeTask(Netmapping a, Netmapping b, AtomicInteger pollCount) {
 		this(a, b, pollCount, null);
 	}
 
+	/**
+	 * Main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		AsyncPipe.Group pipeGroup = new AsyncPipe.Group();
@@ -375,11 +483,17 @@ public class BridgeTask implements AsyncRunnable {
 		}, exec);
 	}
 	
-	// create queues for taskPipeGroup
+	/**
+	 * Create queues for taskPipeGroup.
+	 *
+	 * @return the queue -- must be thread safe
+	 */
 	protected Queue<?> newQueue() {
 		return new ConcurrentLinkedQueue<Object>();
 	}
 
-	// called last (after events, task starts) right before a select
+	/**
+	 * called last (after events, task starts) right before a poll.
+	 */
 	protected void tick() {}
 }

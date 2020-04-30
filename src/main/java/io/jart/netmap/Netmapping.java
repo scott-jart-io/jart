@@ -38,14 +38,28 @@ import com.sun.jna.Pointer;
 import io.jart.util.CLibrary;
 import io.jart.util.NativeBuffer;
 
-// roughly equivalent to nm_desc -- a small bit of api friendliness on top of Netmap
+/**
+ * A Netmap mapping -- roughly equivalent to nm_desc.
+ * A small bit of api friendliness on top of Netmap.
+ */
 public class Netmapping implements AutoCloseable {
+	
+	/**
+	 * A Netmap ring.
+	 */
 	public static class Ring {
 		public final Netmapping nm;
 		public final ByteBuffer ring;
 		public final ByteBuffer[] slots;
 		public final boolean rx;
 		
+		/**
+		 * Instantiates a new ring.
+		 *
+		 * @param nm the nm
+		 * @param ring the ring
+		 * @param rx the rx
+		 */
 		public Ring(Netmapping nm, ByteBuffer ring, boolean rx) {
 			this.nm = nm;
 			this.ring = ring;
@@ -59,6 +73,11 @@ public class Netmapping implements AutoCloseable {
 			this.rx = rx;
 		}
 		
+		/**
+		 * To string for debugging.
+		 *
+		 * @return the string
+		 */
 		public String toString() {
 			return "head: " + NetmapRing.getHead(ring) +
 					" / cur: " + NetmapRing.getCur(ring) +
@@ -71,12 +90,20 @@ public class Netmapping implements AutoCloseable {
 	public final NativeBuffer nmreq; // buffer holding the NMReq
 	public final NativeBuffer mem; // buffer holding mmap-ed memory
 	public final boolean ownMem; // do we own the mmap?
-	public final ByteBuffer IF;
+	public final ByteBuffer IF; // buffer holding the NetmapIF
 	public final Ring[] rxRings;
 	public final int rxBufSize;
 	public final Ring[] txRings;
 	public final int txBufSize;
 	
+	/**
+	 * Instantiates a new netmapping.
+	 *
+	 * @param fd the fd
+	 * @param nmreq the nmreq
+	 * @param mem the mem
+	 * @param ownMem the own mem
+	 */
 	public Netmapping(int fd, NativeBuffer nmreq, NativeBuffer mem, boolean ownMem) {
 		this.fd = fd;
 		this.nmreq = nmreq;
@@ -112,6 +139,11 @@ public class Netmapping implements AutoCloseable {
 		this.txBufSize = txBufSize;
 	}
 
+	/**
+	 * To string.
+	 *
+	 * @return the string
+	 */
 	public String toString() {
 		String result = "-----\n";
 		int n = 0;
@@ -126,6 +158,12 @@ public class Netmapping implements AutoCloseable {
 		}
 		return result;
 	}
+	
+	/**
+	 * First tx ring.
+	 *
+	 * @return the int
+	 */
 	public int firstTxRing() {
 		int reg = NMReq.getFlags(nmreq.buf) & Netmap.NR_REG_MASK;
 		
@@ -139,6 +177,11 @@ public class Netmapping implements AutoCloseable {
 		}
 	}
 
+	/**
+	 * Last tx ring.
+	 *
+	 * @return the int
+	 */
 	public int lastTxRing() {
 		int reg = NMReq.getFlags(nmreq.buf) & Netmap.NR_REG_MASK;
 		
@@ -152,6 +195,11 @@ public class Netmapping implements AutoCloseable {
 		}
 	}
 
+	/**
+	 * First rx ring.
+	 *
+	 * @return the int
+	 */
 	public int firstRxRing() {
 		int reg = NMReq.getFlags(nmreq.buf) & Netmap.NR_REG_MASK;
 		
@@ -165,6 +213,11 @@ public class Netmapping implements AutoCloseable {
 		}
 	}
 
+	/**
+	 * Last rx ring.
+	 *
+	 * @return the int
+	 */
 	public int lastRxRing() {
 		int reg = NMReq.getFlags(nmreq.buf) & Netmap.NR_REG_MASK;
 		
@@ -178,6 +231,11 @@ public class Netmapping implements AutoCloseable {
 		}
 	}
 	
+	/**
+	 * Dump some data for debugging.
+	 *
+	 * @param ps the ps
+	 */
 	public void dump(PrintStream ps) {
 		ps.println("--- rx");
 		for(int i = firstRxRing(); i <= lastRxRing(); i++) {			
@@ -201,6 +259,12 @@ public class Netmapping implements AutoCloseable {
 		}
 	}
 	
+	/**
+	 * Reg SW.
+	 *
+	 * @param name the name
+	 * @return the netmapping
+	 */
 	public static Netmapping regSW(String name) {
 		int fd = CLibrary.INSTANCE.open("/dev/netmap", CLibrary.O_RDWR);
 		NativeBuffer nmreq = NMReq.allocate();
@@ -218,6 +282,12 @@ public class Netmapping implements AutoCloseable {
 		return new Netmapping(fd, nmreq, mem, true);
 	}
 
+	/**
+	 * Reg nic from SW.
+	 *
+	 * @param nm the nm
+	 * @return the netmapping
+	 */
 	public static Netmapping regNicFromSW(Netmapping nm) {
 		int fd = CLibrary.INSTANCE.open("/dev/netmap", CLibrary.O_RDWR);
 		NativeBuffer nmreq = NMReq.allocate();
@@ -238,6 +308,11 @@ public class Netmapping implements AutoCloseable {
 		return new Netmapping(fd, nmreq, mem, needMMap);
 	}
 
+	/**
+	 * Close.
+	 *
+	 * @throws Exception the exception
+	 */
 	@Override
 	public void close() throws Exception {
 		if(ownMem)

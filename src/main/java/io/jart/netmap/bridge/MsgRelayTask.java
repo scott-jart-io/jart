@@ -45,33 +45,75 @@ import io.jart.async.AsyncRunnable;
 import io.jart.pojo.Helper.POJO;
 import io.jart.util.ThreadAffinityExecutor;
 
-// task to enable efficient bulk relay of messages to bridge tasks
-// use MsgRelay class!
+/**
+ * Dependent BridgeTask to enable safe and efficient bulk relay of messages to bridge tasks.
+ * Use MsgRelay class.
+ */
 public class MsgRelayTask implements AsyncRunnable {
+	
+	/**
+	 * Message relay request.
+	 */
 	@POJO(fieldOrder = { "pipe", "msg" })
 	public static class MsgRelayReq {
-		protected AsyncPipe<Object> pipe;
-		protected Object msg;
+		protected AsyncPipe<Object> pipe; // pipe to deliver message to
+		protected Object msg; // the message to deliver
 	
+		/**
+		 * Instantiates a new msg relay req.
+		 */
 		protected MsgRelayReq() {}
 
+		/**
+		 * The Interface Alloc.
+		 */
 		public interface Alloc {
+			
+			/**
+			 * Alloc.
+			 *
+			 * @param pipe the pipe
+			 * @param msg the msg
+			 * @return the msg relay req
+			 */
 			MsgRelayReq alloc(AsyncPipe<Object> pipe, Object msg);
+			
+			/**
+			 * Free.
+			 *
+			 * @param req the req
+			 */
 			void free(MsgRelayReq req);
 		}
 		
+		/**
+		 * Gets the pipe.
+		 *
+		 * @return the pipe
+		 */
 		public AsyncPipe<Object> getPipe() {
 			return pipe;
 		}
 
+		/**
+		 * Gets the msg.
+		 *
+		 * @return the msg
+		 */
 		public Object getMsg() {
 			return msg;
 		}
 }
 
+	/**
+	 * Send to "kick" use and start relaying messages.
+	 */
 	public static class MsgRelayKick {}
 	public static final MsgRelayKick msgRelayKick = new MsgRelayKick();
 	
+	/**
+	 * Info about running MsgRelayTask.
+	 */
 	public static class Context {
 		public final MsgRelayReq.Alloc msgRelayReqAlloc;
 		public final Queue<MsgRelayReq> relayReqQ;
@@ -80,6 +122,15 @@ public class MsgRelayTask implements AsyncRunnable {
 
 		public final Executor exec;
 	
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param msgRelayReqAlloc the msg relay req alloc
+		 * @param relayReqQ the relay req Q
+		 * @param relayReqCount the relay req count
+		 * @param pipe the pipe
+		 * @param exec the exec
+		 */
 		public Context(MsgRelayReq.Alloc msgRelayReqAlloc, Queue<MsgRelayReq> relayReqQ, AtomicInteger relayReqCount, AsyncPipe<MsgRelayKick> pipe, Executor exec) {
 			this.msgRelayReqAlloc = msgRelayReqAlloc;
 			this.relayReqQ = relayReqQ;
@@ -98,6 +149,13 @@ public class MsgRelayTask implements AsyncRunnable {
 
 	public final CompletableFuture<Context> context = new CompletableFuture<Context>();
 	
+	/**
+	 * Instantiates a new msg relay task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param msgRelayReqAlloc the msg relay req alloc
+	 * @param exec the Executor to run on
+	 */
 	public MsgRelayTask(BridgeTask.Context bridgeContext, MsgRelayReq.Alloc msgRelayReqAlloc, Executor exec) {
 		this.bridgeContext = bridgeContext;
 		try {
@@ -111,18 +169,40 @@ public class MsgRelayTask implements AsyncRunnable {
 		this.exec = new ThreadAffinityExecutor((exec != null) ? exec : bridgeContext.exec);
 	}
 	
+	/**
+	 * Instantiates a new msg relay task with default Executor.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param msgRelayReqAlloc the msg relay req alloc
+	 */
 	public MsgRelayTask(BridgeTask.Context bridgeContext, MsgRelayReq.Alloc msgRelayReqAlloc) {
 		this(bridgeContext, msgRelayReqAlloc, null);
 	}
 	
+	/**
+	 * Instantiates a new msg relay task with default allocator.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param exec the Executor to rnu on
+	 */
 	public MsgRelayTask(BridgeTask.Context bridgeContext, Executor exec) {
 		this(bridgeContext, null, exec);
 	}
 	
+	/**
+	 * Instantiates a new msg relay task with default allocator and Executor.
+	 *
+	 * @param bridgeContext the bridge context
+	 */
 	public MsgRelayTask(BridgeTask.Context bridgeContext) {
 		this(bridgeContext, null, null);
 	}
 
+	/**
+	 * Main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		Queue<MsgRelayReq> relayReqQ = new ConcurrentLinkedQueue<MsgRelayReq>();

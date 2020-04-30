@@ -40,29 +40,66 @@ import io.jart.async.AsyncPipe;
 import io.jart.net.EthPkt;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class PcapIpPacketPipe.
+ */
 // AsyncPipe that will log any IpPackets written to the pipe to a given stream in pcap packet format
 public class PcapIpPacketPipe extends AsyncPipe<Object> {
 	private final ByteBuffer someRing;
 	private final OutputStream pcapOs;
 	
+	/**
+	 * Instantiates a new pcap ip packet pipe.
+	 *
+	 * @param group the group
+	 * @param exec the exec
+	 * @param someRing the some ring
+	 * @param pcapOs the pcap os
+	 */
 	public PcapIpPacketPipe(Group group, Executor exec, ByteBuffer someRing, OutputStream pcapOs) {
 		super(group);
 		this.someRing = someRing.duplicate().order(ByteOrder.BIG_ENDIAN);
 		this.pcapOs = pcapOs;
 	}
 
+	/**
+	 * Instantiates a new pcap ip packet pipe.
+	 *
+	 * @param group the group
+	 * @param someRing the some ring
+	 * @param pcapOs the pcap os
+	 */
 	public PcapIpPacketPipe(Group group, ByteBuffer someRing, OutputStream pcapOs) {
 		this(group, null, someRing, pcapOs);
 	}
 
+	/**
+	 * Instantiates a new pcap ip packet pipe.
+	 *
+	 * @param exec the exec
+	 * @param someRing the some ring
+	 * @param pcapOs the pcap os
+	 */
 	public PcapIpPacketPipe(Executor exec, ByteBuffer someRing, OutputStream pcapOs) {
 		this(null, exec, someRing, pcapOs);
 	}
 
+	/**
+	 * Instantiates a new pcap ip packet pipe.
+	 *
+	 * @param someRing the some ring
+	 * @param pcapOs the pcap os
+	 */
 	public PcapIpPacketPipe(ByteBuffer someRing, OutputStream pcapOs) {
 		this(null, null, someRing, pcapOs);
 	}
 
+	/**
+	 * Write.
+	 *
+	 * @param msg the msg
+	 */
 	@Override
 	public void write(Object msg) {
 		if(msg instanceof IpPacket) {

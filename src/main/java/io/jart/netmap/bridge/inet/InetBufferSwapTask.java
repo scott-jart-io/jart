@@ -62,10 +62,17 @@ import io.jart.netmap.bridge.BufferSwapTask;
 import io.jart.netmap.bridge.BufferUnlockerTask;
 import io.jart.pojo.Helper.POJO;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class InetBufferSwapTask.
+ */
 // delegate (some) received internet packets
 public class InetBufferSwapTask extends BufferSwapTask {
 	private static final Logger logger = Logger.getLogger(InetBufferSwapTask.class);
 
+	/**
+	 * The Class Context.
+	 */
 	public class Context {
 		public final IpPacket.Alloc ipPacketAlloc;
 		
@@ -76,6 +83,14 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		// udp
 		public final Map<InetAddrAndPort, ToIntFunction<? super IpPacket>> ip4UdpListeners;
 
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param ipPacketAlloc the ip packet alloc
+		 * @param ip4TcpListeners the ip 4 tcp listeners
+		 * @param ip4TcpConns the ip 4 tcp conns
+		 * @param ip4UdpListeners the ip 4 udp listeners
+		 */
 		public Context(IpPacket.Alloc ipPacketAlloc, 
 				Map<InetAddrAndPort, ToIntFunction<? super IpPacket>> ip4TcpListeners, Map<InetAddrAndPortPair, ToIntFunction<? super IpPacket>> ip4TcpConns,
 				Map<InetAddrAndPort, ToIntFunction<? super IpPacket>> ip4UdpListeners) {
@@ -85,11 +100,20 @@ public class InetBufferSwapTask extends BufferSwapTask {
 			this.ip4UdpListeners = ip4UdpListeners;
 		}
 		
+		/**
+		 * Ip 4 tcp listener.
+		 *
+		 * @param listener the listener
+		 * @return the to int function<? super ip packet>
+		 */
 		public ToIntFunction<? super IpPacket> ip4TcpListener(IpConnListener listener) {
 			return InetBufferSwapTask.this.ip4TcpListener(listener);
 		}
 	}
 
+	/**
+	 * The Class IpPacket.
+	 */
 	@POJO(fieldOrder = { "ethPos", "ipPos", "ipPayloadPos", "endPos", "bufferRef" })
 	public static class IpPacket {
 		protected int ethPos; // ethernet head pos (someRing-relative)
@@ -98,47 +122,137 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		protected int endPos; // end of packet
 		protected BufferRef bufferRef;
 
+		/**
+		 * Instantiates a new ip packet.
+		 */
 		protected IpPacket() {}
 
+		/**
+		 * The Interface Alloc.
+		 */
 		public interface Alloc {
+			
+			/**
+			 * Alloc.
+			 *
+			 * @param ethPod the eth pod
+			 * @param ipPos the ip pos
+			 * @param ipPayloadPos the ip payload pos
+			 * @param endPos the end pos
+			 * @param bufferRef the buffer ref
+			 * @return the ip packet
+			 */
 			IpPacket alloc(int ethPod, int ipPos, int ipPayloadPos, int endPos, BufferRef bufferRef);
+			
+			/**
+			 * Free.
+			 *
+			 * @param packet the packet
+			 */
 			void free(IpPacket packet);
 		}
 		
+		/**
+		 * Gets the eth pos.
+		 *
+		 * @return the eth pos
+		 */
 		public int getEthPos() {
 			return ethPos;
 		}
 
+		/**
+		 * Gets the ip pos.
+		 *
+		 * @return the ip pos
+		 */
 		public int getIpPos() {
 			return ipPos;
 		}
 
+		/**
+		 * Gets the ip payload pos.
+		 *
+		 * @return the ip payload pos
+		 */
 		public int getIpPayloadPos() {
 			return ipPayloadPos;
 		}
 
+		/**
+		 * Gets the end pos.
+		 *
+		 * @return the end pos
+		 */
 		public int getEndPos() {
 			return endPos;
 		}
 
+		/**
+		 * Gets the buffer ref.
+		 *
+		 * @return the buffer ref
+		 */
 		public BufferRef getBufferRef() {
 			return bufferRef;
 		}		
 	}
 
+	/**
+	 * The Interface IpConnHandler.
+	 */
 	// handles an ip-based connection
 	public static interface IpConnHandler extends AsyncRunnable {
+		
+		/**
+		 * Gets the packet pipe.
+		 *
+		 * @return the packet pipe
+		 */
 		AsyncPipe<? super IpPacket> getPacketPipe(); // return the pipe to which packets will be written
+		
+		/**
+		 * Dispose msg.
+		 *
+		 * @param obj the obj
+		 */
 		void disposeMsg(Object obj); // dispose of unhandled non-IpPacket messages in the packet pipe at connection termination time
 	}
 
+	/**
+	 * The Interface IpConnHandlerAssociate.
+	 */
 	// may be implemented by an object that is associated with an IpConnHandler
 	public static interface IpConnHandlerAssociate {
+		
+		/**
+		 * Gets the ip conn handler.
+		 *
+		 * @return the ip conn handler
+		 */
 		IpConnHandler getIpConnHandler();
 	}
 	
+	/**
+	 * The listener interface for receiving ipConn events.
+	 * The class that is interested in processing a ipConn
+	 * event implements this interface, and the object created
+	 * with that class is registered with a component using the
+	 * component's <code>addIpConnListener<code> method. When
+	 * the ipConn event occurs, that object's appropriate
+	 * method is invoked.
+	 *
+	 * @see IpConnEvent
+	 */
 	// listens to (and accepts) ip-based connections
 	public static interface IpConnListener {
+		
+		/**
+		 * Accept.
+		 *
+		 * @param firstPacket the first packet
+		 * @return the ip conn handler
+		 */
 		IpConnHandler accept(IpPacket firstPacket);
 	}
 
@@ -162,6 +276,18 @@ public class InetBufferSwapTask extends BufferSwapTask {
 
 	public final CompletableFuture<Context> context = new CompletableFuture<Context>();
 
+	/**
+	 * Instantiates a new inet buffer swap task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param rx the rx
+	 * @param tx the tx
+	 * @param someRing the some ring
+	 * @param swapCount the swap count
+	 * @param ipPacketAlloc the ip packet alloc
+	 * @param exec the exec
+	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount, IpPacket.Alloc ipPacketAlloc, Executor exec) {
 		super(bufferUnlockerContext, rx, tx, swapCount, exec);
@@ -181,47 +307,111 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		this.ipPacketAlloc = ipPacketAlloc;
 	}
 
+	/**
+	 * Instantiates a new inet buffer swap task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param rx the rx
+	 * @param tx the tx
+	 * @param someRing the some ring
+	 * @param swapCount the swap count
+	 * @param ipPacketAlloc the ip packet alloc
+	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount, IpPacket.Alloc ipPacketAlloc) {
 		this(bridgeContext, bufferUnlockerContext, rx, tx, someRing, swapCount, ipPacketAlloc, null);
 	}
 
+	/**
+	 * Instantiates a new inet buffer swap task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param rx the rx
+	 * @param tx the tx
+	 * @param someRing the some ring
+	 * @param swapCount the swap count
+	 * @param exec the exec
+	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount, Executor exec) {
 		this(bridgeContext, bufferUnlockerContext, rx, tx, someRing, swapCount, null, exec);
 	}
 
+	/**
+	 * Instantiates a new inet buffer swap task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param rx the rx
+	 * @param tx the tx
+	 * @param someRing the some ring
+	 * @param swapCount the swap count
+	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount) {
 		this(bridgeContext, bufferUnlockerContext, rx, tx, someRing, swapCount, null, null);
 	}
 
+	/**
+	 * Run.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		context.complete(new Context(ipPacketAlloc, ip4TcpListeners, ip4TcpConns, ip4UdpListeners));
 		return super.run();
 	}
 
+	/**
+	 * The Class IpConnHandlerPacketConsumer.
+	 */
 	private static class IpConnHandlerPacketConsumer implements ToIntFunction<IpPacket>, IpConnHandlerAssociate {
 		private final IpConnHandler conn;
 		private final AsyncPipe<? super IpPacket> pipe;
 		
+		/**
+		 * Instantiates a new ip conn handler packet consumer.
+		 *
+		 * @param conn the conn
+		 */
 		public IpConnHandlerPacketConsumer(IpConnHandler conn) {
 			this.conn = conn;
 			this.pipe = conn.getPacketPipe();
 		}
 		
+		/**
+		 * Apply as int.
+		 *
+		 * @param packet the packet
+		 * @return the int
+		 */
 		public int applyAsInt(IpPacket packet){
 			pipe.write(packet);
 			return NEXT_A;
 		}
 
+		/**
+		 * Gets the ip conn handler.
+		 *
+		 * @return the ip conn handler
+		 */
 		@Override
 		public IpConnHandler getIpConnHandler() {
 			return conn;
 		}
 	}
 	
+	/**
+	 * Ip accept.
+	 *
+	 * @param conns the conns
+	 * @param app the app
+	 * @param listener the listener
+	 * @param ipPacket the ip packet
+	 */
 	private void ipAccept(Map<InetAddrAndPortPair, ToIntFunction<? super IpPacket>> conns, InetAddrAndPortPair app, IpConnListener listener, IpPacket ipPacket) {
 		IpConnHandler conn = listener.accept(ipPacket);
 		ToIntFunction<? super IpPacket> consumer = new IpConnHandlerPacketConsumer(conn);
@@ -269,6 +459,12 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		});		
 	}
 
+	/**
+	 * Ip 4 tcp listener.
+	 *
+	 * @param listener the listener
+	 * @return the to int function<? super ip packet>
+	 */
 	private ToIntFunction<? super IpPacket> ip4TcpListener(IpConnListener listener) {
 		return (IpPacket ipPacket)->{
 			ipAccept(ip4TcpConns, ip4AddrAndPortPair.dupe(), listener, ipPacket);
@@ -276,6 +472,18 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		};
 	}
 	
+	/**
+	 * Swap action ip 4 tcp listener.
+	 *
+	 * @param ethBufPos the eth buf pos
+	 * @param ethPayloadPos the eth payload pos
+	 * @param ipBuf the ip buf
+	 * @param ipPayloadPos the ip payload pos
+	 * @param ipLimit the ip limit
+	 * @param tcpBuf the tcp buf
+	 * @param rxBuf the rx buf
+	 * @return the int
+	 */
 	protected int swapActionIp4TcpListener(int ethBufPos, int ethPayloadPos, ByteBuffer ipBuf, int ipPayloadPos, int ipLimit, ByteBuffer tcpBuf, BufferRef rxBuf) {
 		ip4AddrAndPort.addr = ip4AddrAndPortPair.addrB;
 		ip4AddrAndPort.port = ip4AddrAndPortPair.portB;
@@ -287,6 +495,18 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		return SWAP | NEXT_A | NEXT_B;							
 	}
 	
+	/**
+	 * Swap action ip 4 tcp.
+	 *
+	 * @param ethBufPos the eth buf pos
+	 * @param ethPayloadPos the eth payload pos
+	 * @param ipBuf the ip buf
+	 * @param ipPayloadPos the ip payload pos
+	 * @param ipLimit the ip limit
+	 * @param tcpBuf the tcp buf
+	 * @param rxBuf the rx buf
+	 * @return the int
+	 */
 	protected int swapActionIp4Tcp(int ethBufPos, int ethPayloadPos, ByteBuffer ipBuf, int ipPayloadPos, int ipLimit, ByteBuffer tcpBuf, BufferRef rxBuf) {
 		ip4AddrAndPortPair.addrA = Ip4Pkt.getSrcAddr(ipBuf);
 		ip4AddrAndPortPair.portA = TcpPkt.getSrcPort(tcpBuf);
@@ -301,6 +521,18 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		return swapActionIp4TcpListener(ethBufPos, ethPayloadPos, ipBuf, ipPayloadPos, ipLimit, tcpBuf, rxBuf);
 	}
 	
+	/**
+	 * Swap action ip 4 udp.
+	 *
+	 * @param ethBufPos the eth buf pos
+	 * @param ethPayloadPos the eth payload pos
+	 * @param ipBuf the ip buf
+	 * @param ipPayloadPos the ip payload pos
+	 * @param ipLimit the ip limit
+	 * @param tcpBuf the tcp buf
+	 * @param rxBuf the rx buf
+	 * @return the int
+	 */
 	protected int swapActionIp4Udp(int ethBufPos, int ethPayloadPos, ByteBuffer ipBuf, int ipPayloadPos, int ipLimit, ByteBuffer tcpBuf, BufferRef rxBuf) {
 		ip4AddrAndPort.addr = Ip4Pkt.getDstAddr(ipBuf);
 		ip4AddrAndPort.port = TcpPkt.getDstPort(tcpBuf);
@@ -312,6 +544,15 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		return SWAP | NEXT_A | NEXT_B;					
 	}
 	
+	/**
+	 * Swap action ip 4.
+	 *
+	 * @param ethBufPos the eth buf pos
+	 * @param ethPayloadPos the eth payload pos
+	 * @param ipBuf the ip buf
+	 * @param rxBuf the rx buf
+	 * @return the int
+	 */
 	protected int swapActionIp4(int ethBufPos, int ethPayloadPos, ByteBuffer ipBuf, BufferRef rxBuf) {
 		int totalLen = Ip4Pkt.getTotalLen(ipBuf);							
 		int ipLimit = ethPayloadPos + totalLen;
@@ -331,6 +572,13 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		return SWAP | NEXT_A | NEXT_B;			
 	}
 
+	/**
+	 * Swap action.
+	 *
+	 * @param rxBuf the rx buf
+	 * @param txBuf the tx buf
+	 * @return the int
+	 */
 	@Override
 	protected int swapAction(BufferRef rxBuf, BufferRef txBuf) {
 		int ethBufPos = (int)NetmapRing.bufOfs(someRing, rxBuf.getBufIdx());

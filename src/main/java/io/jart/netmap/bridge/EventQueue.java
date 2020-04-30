@@ -32,27 +32,50 @@ package io.jart.netmap.bridge;
 
 import io.jart.async.AsyncEventQueue;
 
-// update/remove events on a given event queue task
+/**
+ * EventQueue implementation on top of an EventQueueTask.
+ */
 public class EventQueue implements io.jart.util.EventQueue {
 	private final EventQueueTask.Context eventQueueContext;
 	
+	/**
+	 * Instantiates a new event queue.
+	 *
+	 * @param eventQueueContext the event queue context
+	 */
 	public EventQueue(EventQueueTask.Context eventQueueContext) {
 		this.eventQueueContext = eventQueueContext;
 	}
 	
+	/**
+	 * Make a request.
+	 *
+	 * @param req the req
+	 */
 	private void request(EventQueueTask.EventReq req) {
 		eventQueueContext.eventReqQ.offer(req);
 		if(eventQueueContext.eventReqCount.getAndIncrement() == 0)
 			eventQueueContext.pipe.write(EventQueueTask.eventQueueKick);		
 	}
 	
-	// only callable from a bridge task
+	/**
+	 * Remove the event.
+	 * Only safely callable from a bridge task.
+	 *
+	 * @param event the event
+	 */
 	@Override
 	public void remove(AsyncEventQueue.Event event) {
 		request(eventQueueContext.eventRemoveReqAlloc.alloc(event));
 	}
 
-	// only callable from a bridge task
+	/**
+	 * Update the event.
+	 * Only safely callable from a bridge task.
+	 *
+	 * @param event the event
+	 * @param time the time
+	 */
 	@Override
 	public void update(AsyncEventQueue.Event event, long time) {
 		request(eventQueueContext.eventUpdateReqAlloc.alloc(event, time));

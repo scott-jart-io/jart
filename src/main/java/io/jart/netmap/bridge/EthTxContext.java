@@ -41,16 +41,32 @@ import io.jart.net.EthPkt;
 import io.jart.net.TxContext;
 import io.jart.netmap.NetmapRing;
 
-// data link tx connection on top of bridge objects
+/**
+ * Implements a data link tx connection on top of bridge objects.
+ */
 public class EthTxContext implements DataLinkTxContext {
+	
+	/**
+	 * Buffer implementation.
+	 */
 	protected class Buffer implements TxContext.Buffer {
 		private BufferRef bufferRef;
 		public int ethBufPos;
 
+		/**
+		 * Instantiates a new buffer.
+		 *
+		 * @param bufferRef the buffer ref
+		 */
 		public Buffer(BufferRef bufferRef) {
 			this.bufferRef = bufferRef;
 		}
 		
+		/**
+		 * Use the buffer.
+		 *
+		 * @return the byte buffer
+		 */
 		public ByteBuffer use() {
 			ethBufPos = (int)NetmapRing.bufOfs(someRing, bufferRef.getBufIdx());
 
@@ -63,12 +79,18 @@ public class EthTxContext implements DataLinkTxContext {
 			return ethBuf;
 		}
 
+		/**
+		 * Finish.
+		 */
 		public void finish() {
 			bufferRef.setLen(ethBuf.position() - ethBufPos);
 			bulContext.pipe.write(bulContext.bufferUnlockReqAlloc.alloc(bufferRef));
 			bufferRef = null;
 		}
 
+		/**
+		 * Abort.
+		 */
 		public void abort() {
 			tx.pipe.write(bufferRef);
 		}		
@@ -83,6 +105,18 @@ public class EthTxContext implements DataLinkTxContext {
 	private final long srcMac;
 	private final short etherType;
 	
+	/**
+	 * Instantiates a new eth tx context.
+	 *
+	 * @param tx the tx
+	 * @param txBufSize the tx buf size
+	 * @param bulContext the bul context
+	 * @param someRing the some ring
+	 * @param ethBuf the eth buf
+	 * @param dstMac the dst mac
+	 * @param srcMac the src mac
+	 * @param etherType the ether type
+	 */
 	public EthTxContext(BufferPipeTask.Context tx, int txBufSize, BufferUnlockerTask.Context bulContext, ByteBuffer someRing, ByteBuffer ethBuf, long dstMac, long srcMac, short etherType) {
 		this.tx = tx;
 		this.txBufSize = txBufSize;
@@ -94,16 +128,38 @@ public class EthTxContext implements DataLinkTxContext {
 		this.etherType = etherType;
 	}
 	
+	/**
+	 * Start a transmit.
+	 * Returns a Buffer for use().
+	 *
+	 * @param exec the Executor to run on
+	 * @return the completable future which completes with a Buffer ready for use().
+	 */
 	@Override
 	public CompletableFuture<TxContext.Buffer> startTx(Executor exec) {
 		return tx.pipe.read(exec).thenApply(Buffer::new);
 	}
 
+	/**
+	 * Start a transmit indirectly via a pipe.
+	 * As startTx(Executor exec) but delivers the Buffer to dst as translated by fun.
+	 *
+	 * @param <D> the generic type
+	 * @param <O> the generic type
+	 * @param dst the destination pipe
+	 * @param fun the function to translate the Buffer to whatever the destination pipe wants
+	 * @param exec the Executor to run on
+	 */
 	@Override
 	public<D, O extends D> void startTx(AsyncPipe<D> dst, Function<TxContext.Buffer, O> fun, Executor exec) {
 		tx.pipe.transfer(dst, (BufferRef bufferRef)->fun.apply(new Buffer(bufferRef)), exec);
 	}
 
+	/**
+	 * Try to synchronously start a transmit.
+	 *
+	 * @return the buffer or null on failure
+	 */
 	@Override
 	public Buffer tryStartTx() {
 		BufferRef bufferRef = tx.pipe.poll();
@@ -111,17 +167,34 @@ public class EthTxContext implements DataLinkTxContext {
 		return (bufferRef != null) ? new Buffer(bufferRef) : null;
 	}
 	
+	/**
+	 * Make a Buffer ready for use and return a ByteBuffer prepped for filling.
+	 * We're stateful and can only use one buffer at a time.
+	 *
+	 * @param buffer the buffer
+	 * @return the byte buffer
+	 */
 	// we're stateful and can only use one buffer at a time
 	@Override
 	public ByteBuffer use(TxContext.Buffer buffer) {
 		return ((Buffer)buffer).use();
 	}
 
+	/**
+	 * Finish.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void finish(TxContext.Buffer buffer) {
 		((Buffer)buffer).finish();
 	}
 
+	/**
+	 * Abort.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void abort(TxContext.Buffer buffer) {
 		((Buffer)buffer).abort();

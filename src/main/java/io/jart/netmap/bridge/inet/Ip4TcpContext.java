@@ -39,24 +39,65 @@ import io.jart.netmap.bridge.BufferUnlockerTask.Context;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket.Alloc;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class Ip4TcpContext.
+ */
 public class Ip4TcpContext extends BaseTcpContext {
+	
+	/**
+	 * Instantiates a new ip 4 tcp context.
+	 *
+	 * @param ethBuf the eth buf
+	 * @param pipe the pipe
+	 * @param tx the tx
+	 * @param bulContext the bul context
+	 * @param ipPacketAlloc the ip packet alloc
+	 */
 	public Ip4TcpContext(ByteBuffer ethBuf, AsyncPipe<Object> pipe, TcpTxContext tx, Context bulContext,
 			Alloc ipPacketAlloc) {
 		super(ethBuf, pipe, tx, bulContext, ipPacketAlloc);
 	}
 
+	/**
+	 * Instantiates a new ip 4 tcp context.
+	 *
+	 * @param ethBuf the eth buf
+	 * @param pipe the pipe
+	 * @param tx the tx
+	 * @param bulContext the bul context
+	 */
 	public Ip4TcpContext(ByteBuffer ethBuf, AsyncPipe<Object> pipe, TcpTxContext tx, Context bulContext) {
 		super(ethBuf, pipe, tx, bulContext);
 	}
 
+	/**
+	 * Instantiates a new ip 4 tcp context.
+	 *
+	 * @param factory the factory
+	 * @param firstPacket the first packet
+	 * @param ipPacketAlloc the ip packet alloc
+	 */
 	public Ip4TcpContext(EthBufPipeTxFactory factory, IpPacket firstPacket, Alloc ipPacketAlloc) {
 		super(factory, firstPacket, ipPacketAlloc);
 	}
 
+	/**
+	 * Instantiates a new ip 4 tcp context.
+	 *
+	 * @param factory the factory
+	 * @param firstPacket the first packet
+	 */
 	public Ip4TcpContext(EthBufPipeTxFactory factory, IpPacket firstPacket) {
 		super(factory, firstPacket);
 	}
 
+	/**
+	 * Check ip C sum.
+	 *
+	 * @param ipPacket the ip packet
+	 * @return true, if successful
+	 */
 	// override to return true for hardware offload
 	@Override
 	protected boolean checkIpCSum(IpPacket ipPacket) {

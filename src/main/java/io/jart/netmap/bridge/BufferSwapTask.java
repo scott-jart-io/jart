@@ -42,11 +42,22 @@ import io.jart.async.AsyncPipe;
 import io.jart.async.AsyncRunnable;
 import io.jart.util.ThreadAffinityExecutor;
 
-// swap buffers between two BufferPipeTasks
+/**
+ * Dependent BridgeTask task to swap buffers between two BufferPipeTasks.
+ */
 public class BufferSwapTask implements AsyncRunnable {
+	
+	/**
+	 * Info about a running BufferSwapTask.
+	 */
 	public static class Context {
 		public final Executor exec;
 	
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param exec the exec
+		 */
 		public Context(Executor exec) {
 			this.exec = exec;
 		}
@@ -63,6 +74,15 @@ public class BufferSwapTask implements AsyncRunnable {
 
 	public final CompletableFuture<BufferSwapTask.Context> context = new CompletableFuture<BufferSwapTask.Context>();
 
+	/**
+	 * Instantiates a new buffer swap task.
+	 *
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param a the a
+	 * @param b the b
+	 * @param swapCount the swap count
+	 * @param exec the Executor to run on
+	 */
 	public BufferSwapTask(BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context a, BufferPipeTask.Context b,
 			AtomicInteger swapCount, Executor exec) {
 		this.bufferUnlockerContext = bufferUnlockerContext;
@@ -72,6 +92,14 @@ public class BufferSwapTask implements AsyncRunnable {
 		this.exec = new ThreadAffinityExecutor((exec != null) ? exec : bufferUnlockerContext.exec);
 	}
 
+	/**
+	 * Instantiates a new buffer swap task with a default Executor.
+	 *
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param a the a
+	 * @param b the b
+	 * @param swapCount the swap count
+	 */
 	public BufferSwapTask(BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context a, BufferPipeTask.Context b,
 			AtomicInteger swapCount) {
 		this(bufferUnlockerContext, a, b, swapCount, null);
@@ -81,13 +109,26 @@ public class BufferSwapTask implements AsyncRunnable {
 	protected static final int NEXT_A = 2; // get the next "a" buffer
 	protected static final int NEXT_B = 4; // get the next "b" buffer
 	
-	// override me to route buffers elsewhere
+	/**
+	 * Return the swap action to perform for a pair of BufferRefs.
+	 * Default action is to swap both buffers and then get new buffers.
+	 * Override me to route buffers elsewhere.
+	 *
+	 * @param a the a
+	 * @param b the b
+	 * @return the int
+	 */
 	protected int swapAction(BufferRef a, BufferRef b) {
 		return SWAP | NEXT_A | NEXT_B; // swap buffers then get two new ones
 	}
 	
 	private BufferRef aBuf, bBuf;
 	
+	/**
+	 * Main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		context.complete(new BufferSwapTask.Context(exec));

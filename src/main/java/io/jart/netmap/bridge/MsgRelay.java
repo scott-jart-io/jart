@@ -32,19 +32,34 @@ package io.jart.netmap.bridge;
 
 import io.jart.async.AsyncPipe;
 
-// safely and efficiently relay messages to a task running as a bridge task
+/**
+ * Safely and efficiently relay messages to a dependent BridgeTask task.
+ */
 public class MsgRelay {
 	private final BridgeTask.Context bridgeContext;
 	private final MsgRelayTask.Context msgRelayContext;
 	private final BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayKick> bridgeRelayKickReq;
 
+	/**
+	 * Instantiates a new msg relay.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param msgRelayContext the msg relay context
+	 */
 	public MsgRelay(BridgeTask.Context bridgeContext, MsgRelayTask.Context msgRelayContext) {
 		this.bridgeContext = bridgeContext;
 		this.msgRelayContext = msgRelayContext;
 		this.bridgeRelayKickReq = new BridgeTask.BridgeRelayReq<MsgRelayTask.MsgRelayKick>(msgRelayContext.pipe, MsgRelayTask.msgRelayKick);
 	}
 	
-	// ok to call at any time in any context
+	/**
+	 * Relay.
+	 * Ok to call at any time in any context.
+	 *
+	 * @param <T> the generic type
+	 * @param pipe the pipe
+	 * @param msg the msg
+	 */
 	@SuppressWarnings("unchecked")
 	public <T> void relay(AsyncPipe<? super T> pipe, T msg) {
 		msgRelayContext.relayReqQ.offer(msgRelayContext.msgRelayReqAlloc.alloc((AsyncPipe<Object>)pipe, (Object)msg));

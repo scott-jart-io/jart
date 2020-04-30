@@ -32,26 +32,64 @@ package io.jart.netmap.bridge;
 
 import io.jart.pojo.Helper.POJO;
 
+/**
+ * POJO reference to a Netmap buffer.
+ */
 @POJO(fieldOrder = { "bufIdx", "len" })
 public class BufferRef {
 	protected long bufIdx;
 	protected int len;
 
+	/**
+	 * Instantiates a new buffer ref.
+	 */
 	protected BufferRef() {}
 
+	/**
+	 * The Interface Alloc.
+	 */
 	public interface Alloc {
+		
+		/**
+		 * Alloc.
+		 *
+		 * @param bufIdx the buf idx
+		 * @param len the len
+		 * @return the buffer ref
+		 */
 		BufferRef alloc(long bufIdx, int len);
+		
+		/**
+		 * Free.
+		 *
+		 * @param buf the buf
+		 */
 		void free(BufferRef buf);
 	}
 	
+	/**
+	 * Gets the buf idx.
+	 *
+	 * @return the buf idx
+	 */
 	public long getBufIdx() {
 		return bufIdx;
 	}
 
+	/**
+	 * Gets the len.
+	 *
+	 * @return the len
+	 */
 	public int getLen() {
 		return len;
 	}
 
+	/**
+	 * Sets the len.
+	 *
+	 * @param len the new len
+	 */
 	public void setLen(int len) {
 		this.len = len;
 	}

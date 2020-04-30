@@ -30,6 +30,9 @@
 
 package io.jart.netmap;
 
+/**
+ * Netmap helper class.
+ */
 public class Netmap {
 	public static final String NETMAP_GIT_HASH = "b316518f5174d13fccc1203a38dffea62e79a634";
 	public static final int NETMAP_API = 14;
@@ -74,4 +77,6 @@ public class Netmap {
 	public static final int NS_NO_LEARN	= 0x0008;	/* disable bridge learning */
 	public static final int NS_INDIRECT	= 0x0010;	/* userspace buffer */
 	public static final int NS_MOREFRAG	= 0x0020;	/* packet has more fragments */
+	
+	private Netmap() {} // hide constructor
 }

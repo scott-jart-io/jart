@@ -55,8 +55,14 @@ import io.jart.netmap.Netmapping;
 import io.jart.pojo.Helper.POJO;
 import io.jart.util.ThreadAffinityExecutor;
 
-// handle buffer tracking and (swap and) unlock requests
+/**
+ * Handle buffer tracking and (swap and) unlock requests.
+ */
 public class BufferUnlockerTask implements AsyncRunnable {
+	
+	/**
+	 * Information about running BufferUnlockerTask.
+	 */
 	public static class Context {
 		public final AsyncReadWriteLock rwLock;
 		public final BufferRef.Alloc bufferRefAlloc;
@@ -66,6 +72,17 @@ public class BufferUnlockerTask implements AsyncRunnable {
 		public final Map<Long, BufferUnlockerTask.BufferLock> locks;
 		public final Executor exec;
 	
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param rwLock the rw lock
+		 * @param bufferRefAlloc the buffer ref alloc
+		 * @param bufferUnlockReqAlloc the buffer unlock req alloc
+		 * @param bufferSwapSlotsAndUnlockReqAlloc the buffer swap slots and unlock req alloc
+		 * @param pipe the pipe
+		 * @param locks the locks
+		 * @param exec the Executor to run on
+		 */
 		public Context(AsyncReadWriteLock rwLock, BufferRef.Alloc bufferRefAlloc, BufferUnlockReq.Alloc bufferUnlockReqAlloc, BufferSwapSlotsAndUnlockReq.Alloc bufferSwapSlotsAndUnlockReqAlloc, AsyncPipe<BufferUnlockerTask.BufferUnlockerReq> pipe, Map<Long, BufferUnlockerTask.BufferLock> locks, Executor exec) {
 			this.rwLock = rwLock;
 			this.bufferRefAlloc = bufferRefAlloc;
@@ -77,70 +94,160 @@ public class BufferUnlockerTask implements AsyncRunnable {
 		}
 	}
 
+	/**
+	 * A lock on a buffer.
+	 */
 	public static class BufferLock {
 		public final Netmapping.Ring ring;
 		public final long slot;
 	
+		/**
+		 * Instantiates a new buffer lock.
+		 *
+		 * @param ring the ring
+		 * @param slot the slot
+		 */
 		public BufferLock(Netmapping.Ring ring, long slot) {
 			this.ring = ring;
 			this.slot = slot;
 		}
 	}
 
+	/**
+	 * Base message class.
+	 */
 	public static class BufferUnlockerMsg {
 	}
 
+	/**
+	 * Base request message class.
+	 */
 	public static class BufferUnlockerReq extends BufferUnlockerTask.BufferUnlockerMsg {
 	}
 
+	/**
+	 * Base message response class.
+	 */
 	public static class BufferUnlockerResp extends BufferUnlockerTask.BufferUnlockerMsg {
 	}
 
+	/**
+	 * Request notification when a ring has been modified.
+	 */
 	public static class RingWaitReq extends BufferUnlockerReq {
 		public final AsyncPipe<? super RingWaitResp> pipe;
 		public final Netmapping.Ring ring;
 
+		/**
+		 * Instantiates a new ring wait req.
+		 *
+		 * @param pipe the pipe to which to send the notification when ring is modified
+		 * @param ring the ring
+		 */
 		public RingWaitReq(AsyncPipe<? super RingWaitResp> pipe, Netmapping.Ring ring) {
 			this.pipe = pipe;
 			this.ring = ring;
 		}
 	}
 	
+	/**
+	 * Response when a ring has been modified.
+	 */
 	public static class RingWaitResp extends BufferUnlockerResp {
 	}
 	
+	/**
+	 * Request to unlock a buffer.
+	 */
 	@POJO(fieldOrder = { "buf" })
 	public static class BufferUnlockReq extends BufferUnlockerTask.BufferUnlockerReq {
 		protected BufferRef buf;
 	
+		/**
+		 * Instantiates a new buffer unlock req.
+		 */
 		protected BufferUnlockReq() {}
 		
+		/**
+		 * The Interface Alloc.
+		 */
 		public interface Alloc {
+			
+			/**
+			 * Alloc.
+			 *
+			 * @param buf the buf
+			 * @return the buffer unlock req
+			 */
 			BufferUnlockReq alloc(BufferRef buf);
+			
+			/**
+			 * Free.
+			 *
+			 * @param req the req
+			 */
 			void free(BufferUnlockReq req);
 		}
 
+		/**
+		 * Gets the buf.
+		 *
+		 * @return the buf
+		 */
 		public BufferRef getBuf() {
 			return buf;
 		}
 	}
 
+	/**
+	 * Request to swap two buffers and then unlock them.
+	 */
 	@POJO(fieldOrder = { "bufA", "bufB" })
 	public static class BufferSwapSlotsAndUnlockReq extends BufferUnlockerTask.BufferUnlockerReq {
 		protected BufferRef bufA;
 		protected BufferRef bufB;
 	
+		/**
+		 * Instantiates a new buffer swap slots and unlock req.
+		 */
 		protected BufferSwapSlotsAndUnlockReq() {}
 
+		/**
+		 * The Interface Alloc.
+		 */
 		public interface Alloc {
+			
+			/**
+			 * Alloc.
+			 *
+			 * @param bufA the buf A
+			 * @param bufB the buf B
+			 * @return the buffer swap slots and unlock req
+			 */
 			BufferSwapSlotsAndUnlockReq alloc(BufferRef bufA, BufferRef bufB);
+			
+			/**
+			 * Free.
+			 *
+			 * @param req the req
+			 */
 			void free(BufferSwapSlotsAndUnlockReq req);
 		}
 
+		/**
+		 * Gets the buf A.
+		 *
+		 * @return the buf A
+		 */
 		public BufferRef getBufA() {
 			return bufA;
 		}
 
+		/**
+		 * Gets the buf B.
+		 *
+		 * @return the buf B
+		 */
 		public BufferRef getBufB() {
 			return bufB;
 		}
@@ -156,6 +263,15 @@ public class BufferUnlockerTask implements AsyncRunnable {
 
 	public final CompletableFuture<BufferUnlockerTask.Context> context = new CompletableFuture<BufferUnlockerTask.Context>();
 
+	/**
+	 * Instantiates a new buffer unlocker task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferRefAlloc the buffer ref alloc
+	 * @param bufferUnlockReqAlloc the buffer unlock req alloc
+	 * @param bufferSwapSlotsAndUnlockReqAlloc the buffer swap slots and unlock req alloc
+	 * @param exec the Executor to run on
+	 */
 	public BufferUnlockerTask(BridgeTask.Context bridgeContext, BufferRef.Alloc bufferRefAlloc, BufferUnlockReq.Alloc bufferUnlockReqAlloc, BufferSwapSlotsAndUnlockReq.Alloc bufferSwapSlotsAndUnlockReqAlloc, Executor exec) {
 		this.bridgeContext = bridgeContext;
 		
@@ -176,18 +292,42 @@ public class BufferUnlockerTask implements AsyncRunnable {
 		this.exec = new ThreadAffinityExecutor((exec != null) ? exec : bridgeContext.exec);
 	}
 
+	/**
+	 * Instantiates a new buffer unlocker task with a default Executor.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param bufferRefAlloc the buffer ref alloc
+	 * @param bufferUnlockReqAlloc the buffer unlock req alloc
+	 * @param bufferSwapSlotsAndUnlockReqAlloc the buffer swap slots and unlock req alloc
+	 */
 	public BufferUnlockerTask(BridgeTask.Context bridgeContext, BufferRef.Alloc bufferRefAlloc, BufferUnlockReq.Alloc bufferUnlockReqAlloc, BufferSwapSlotsAndUnlockReq.Alloc bufferSwapSlotsAndUnlockReqAlloc) {
 		this(bridgeContext, bufferRefAlloc, bufferUnlockReqAlloc, bufferSwapSlotsAndUnlockReqAlloc, null);
 	}
 
+	/**
+	 * Instantiates a new buffer unlocker task with default allocators.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param exec the Executor to run on
+	 */
 	public BufferUnlockerTask(BridgeTask.Context bridgeContext, Executor exec) {
 		this(bridgeContext, null, null, null, exec);
 	}
 
+	/**
+	 * Instantiates a new buffer unlocker task with default allocators on Executor.
+	 *
+	 * @param bridgeContext the bridge context
+	 */
 	public BufferUnlockerTask(BridgeTask.Context bridgeContext) {
 		this(bridgeContext, null, null, null, null);
 	}
 	
+	/**
+	 * Main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		AsyncReadWriteLock rwLock = new AsyncReadWriteLock();

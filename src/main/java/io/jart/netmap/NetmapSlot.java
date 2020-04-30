@@ -33,37 +33,90 @@ import java.nio.ByteBuffer;
 
 import com.sun.jna.Pointer;
 
+/**
+ * Helper class for Netmap slots.
+ */
 public class NetmapSlot {
 	public final static int SIZE = 16;
 
+	private NetmapSlot() {} // hide constructor
+	
+	/**
+	 * Gets the buf idx.
+	 *
+	 * @param b the b
+	 * @return the buf idx
+	 */
 	public static long getBufIdx(ByteBuffer b) {
 		return 0xffffffffL & (long)b.getInt(0);
 	}
 
+	/**
+	 * Sets the buf idx.
+	 *
+	 * @param b the b
+	 * @param bufIdx the buf idx
+	 */
 	public static void setBufIdx(ByteBuffer b, long bufIdx) {
 		b.putInt(0, (int)bufIdx);
 	}
 
+	/**
+	 * Gets the len.
+	 *
+	 * @param b the b
+	 * @return the len
+	 */
 	public static int getLen(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(4);
 	}
 
+	/**
+	 * Sets the len.
+	 *
+	 * @param b the b
+	 * @param len the len
+	 */
 	public static void setLen(ByteBuffer b, int len) {
 		b.putShort(4, (short)len);
 	}
 
+	/**
+	 * Gets the flags.
+	 *
+	 * @param b the b
+	 * @return the flags
+	 */
 	public static int getFlags(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(6);
 	}
 
+	/**
+	 * Sets the flags.
+	 *
+	 * @param b the b
+	 * @param flags the flags
+	 */
 	public static void setFlags(ByteBuffer b, int flags) {
 		b.putShort(6, (short)flags);
 	}
 
+	/**
+	 * Gets the ptr.
+	 *
+	 * @param b the b
+	 * @return the ptr
+	 */
 	public static Pointer getPtr(ByteBuffer b) {
 		return new Pointer(b.getLong(8));
 	}
 
+	/**
+	 * Sets the ptr.
+	 *
+	 * @param b the b
+	 * @param ptr the ptr
+	 */
 	public static void setPtr(ByteBuffer b, Pointer ptr) {
 		b.putLong(8, Pointer.nativeValue(ptr));
 	}

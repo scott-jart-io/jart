@@ -36,30 +36,60 @@ import io.jart.async.AsyncPipe;
 import io.jart.net.TcpLoop;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 
+// TODO: Auto-generated Javadoc
+/**
+ * The Class BaseTcpHandler.
+ */
 public class BaseTcpHandler implements InetBufferSwapTask.IpConnHandler {
 	private final AsyncPipe<? super IpPacket> packetPipe;
 	private final TcpLoop tcpLoop;
 
+	/**
+	 * Instantiates a new base tcp handler.
+	 *
+	 * @param packetPipe the packet pipe
+	 * @param tcpLoop the tcp loop
+	 */
 	public BaseTcpHandler(AsyncPipe<? super IpPacket> packetPipe, TcpLoop tcpLoop) {
 		this.packetPipe = packetPipe;
 		this.tcpLoop = tcpLoop;
 	}
 
+	/**
+	 * Gets the packet pipe.
+	 *
+	 * @return the packet pipe
+	 */
 	@Override
 	public AsyncPipe<? super IpPacket> getPacketPipe() {
 		return packetPipe;
 	}
 
+	/**
+	 * Run.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		return tcpLoop.run();
 	}
 
+	/**
+	 * Dispose msg.
+	 *
+	 * @param obj the obj
+	 */
 	@Override
 	public void disposeMsg(Object obj) {
 		tcpLoop.disposeMsg(obj);
 	}
 	
+	/**
+	 * Gets the tcp loop.
+	 *
+	 * @return the tcp loop
+	 */
 	public TcpLoop getTcpLoop() {
 		return tcpLoop;
 	}

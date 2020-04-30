@@ -46,26 +46,53 @@ import io.jart.netmap.NetmapSlot;
 import io.jart.netmap.Netmapping;
 import io.jart.util.ThreadAffinityExecutor;
 
-// move all available buffers from a set of tx or rx rings into a pipe
+/**
+ * Dependent BridgeTask task to move all available buffers from a set of tx or rx rings into a pipe.
+ */
 public class BufferPipeTask implements AsyncRunnable {
+	
+	/**
+	 * Information about the running BridgePipeTask.
+	 */
 	public static class Context {
 		public final AsyncPipe<BufferRef> pipe;
 		public final Executor exec;
 	
+		/**
+		 * Instantiates a new context.
+		 *
+		 * @param pipe the pipe
+		 * @param exec the exec
+		 */
 		public Context(AsyncPipe<BufferRef> pipe, Executor exec) {
 			this.pipe = pipe;
 			this.exec = exec;
 		}
 	}
 
+	/**
+	 * Base message class.
+	 */
 	public static class BufferPipeMsg {}
 
+	/**
+	 * Base request class.
+	 */
 	public static class BufferPipeReq extends BufferPipeTask.BufferPipeMsg {}
 
+	/**
+	 * Request a buffer lock.
+	 */
 	public static class BufferLockReq extends BufferPipeTask.BufferPipeReq {
 		public final AsyncPipe<? super BufferRef> pipe;
 		public final BufferUnlockerTask.BufferLock bufferLock;
 	
+		/**
+		 * Instantiates a new buffer lock req.
+		 *
+		 * @param pipe the pipe
+		 * @param bufferLock the buffer lock
+		 */
 		public BufferLockReq(AsyncPipe<? super BufferRef> pipe, BufferUnlockerTask.BufferLock bufferLock) {
 			this.pipe = pipe;
 			this.bufferLock = bufferLock;
@@ -82,6 +109,14 @@ public class BufferPipeTask implements AsyncRunnable {
 
 	public final CompletableFuture<BufferPipeTask.Context> context = new CompletableFuture<BufferPipeTask.Context>();
 
+	/**
+	 * Instantiates a new buffer pipe task.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param ring the ring
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 * @param exec the Executor to run on
+	 */
 	public BufferPipeTask(BridgeTask.Context bridgeContext, Netmapping.Ring ring,
 			BufferUnlockerTask.Context bufferUnlockerContext, Executor exec) {
 		this.bridgeContext = bridgeContext;
@@ -90,11 +125,23 @@ public class BufferPipeTask implements AsyncRunnable {
 		this.exec = new ThreadAffinityExecutor((exec != null) ? exec : bridgeContext.exec);
 	}
 
+	/**
+	 * Instantiates a new buffer pipe task with a default Executor.
+	 *
+	 * @param bridgeContext the bridge context
+	 * @param ring the ring
+	 * @param bufferUnlockerContext the buffer unlocker context
+	 */
 	public BufferPipeTask(BridgeTask.Context bridgeContext, Netmapping.Ring ring,
 			BufferUnlockerTask.Context bufferUnlockerContext) {
 		this(bridgeContext, ring, bufferUnlockerContext, null);
 	}
 
+	/**
+	 * Main.
+	 *
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		AsyncPipe<BufferRef> pipe = new AsyncPipe<BufferRef>(bridgeContext.taskPipeGroup);
