@@ -493,7 +493,7 @@ public class BridgeTask implements AsyncRunnable {
 	}
 
 	/**
-	 * called last (after events, task starts) right before a poll.
+	 * Called last (after events, task starts) right before a poll.
 	 */
 	protected void tick() {}
 }

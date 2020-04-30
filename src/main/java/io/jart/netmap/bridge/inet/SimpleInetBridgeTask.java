@@ -61,28 +61,19 @@ import io.jart.netmap.bridge.MsgRelay;
 import io.jart.netmap.bridge.MsgRelayTask;
 import io.jart.netmap.bridge.inet.BaseTcpContext.BaseIp4EthBufPipeTxFactory;
 
-// TODO: Auto-generated Javadoc
 /**
- * The Class SimpleInetBridgeTask.
+ * Sets up a BridgeTask and associated dependent tasks for a simple usage of JART as inet server.
  */
 public class SimpleInetBridgeTask implements AsyncRunnable {
 	private static final Logger logger = Logger.getLogger(SimpleInetBridgeTask.class);
 
 	/**
-	 * The listener interface for receiving tcpLoop events.
-	 * The class that is interested in processing a tcpLoop
-	 * event implements this interface, and the object created
-	 * with that class is registered with a component using the
-	 * component's <code>addTcpLoopListener<code> method. When
-	 * the tcpLoop event occurs, that object's appropriate
-	 * method is invoked.
-	 *
-	 * @see TcpLoopEvent
+	 * Tcp listener that returns a new TcpLoop for a given TcpContext.
 	 */
 	public static interface TcpLoopListener {
 		
 		/**
-		 * Accept.
+		 * Accept a connection.
 		 *
 		 * @param tcpContext the tcp context
 		 * @return the tcp loop
@@ -91,7 +82,7 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 	}
 	
 	/**
-	 * The Class Context.
+	 * Info about running SimpleInetBridgeTask.
 	 */
 	public class Context {
 		public final MsgRelay msgRelay;
@@ -109,19 +100,21 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 		}
 		
 		/**
-		 * Ip 4 tcp listen.
+		 * Register ipv4 tcp listener on a given address and port.
+		 * May be called in any context.
 		 *
-		 * @param aap the aap
-		 * @param tll the tll
+		 * @param aap the address and port
+		 * @param tll the listener
 		 */
 		public void ip4TcpListen(Ip4AddrAndPort aap, TcpLoopListener tll) {
 			SimpleInetBridgeTask.this.ip4TcpListen(aap, tll);
 		}
 		
 		/**
-		 * Ip 4 tcp listener remove.
+		 * Remove any ipv4 tcp listener on a given address and port.
+		 * May be called in any context.
 		 *
-		 * @param aap the aap
+		 * @param aap the address and port
 		 */
 		public void ip4TcpListenerRemove(Ip4AddrAndPort aap) {
 			SimpleInetBridgeTask.this.ip4TcpListenerRemove(aap);
@@ -138,10 +131,10 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 	public final CompletableFuture<Context> context = new CompletableFuture<Context>();
 
 	/**
-	 * Ip 4 tcp listen.
+	 * Register a listener on a given ipv4 address and port
 	 *
-	 * @param aap the aap
-	 * @param tll the tll
+	 * @param aap the address and port
+	 * @param tll the listener
 	 */
 	private void ip4TcpListen(Ip4AddrAndPort aap, TcpLoopListener tll) {
 		aap = aap.dupe();
@@ -160,9 +153,9 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 	}
 	
 	/**
-	 * Ip 4 tcp listener remove.
+	 * Unregister any listener on a given ipv4 address and port.
 	 *
-	 * @param aap the aap
+	 * @param aap the address and port
 	 */
 	private void ip4TcpListenerRemove(Ip4AddrAndPort aap) {
 		for(InetBufferSwapTask.Context ibsc: ibsContexts)
@@ -185,15 +178,15 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 	/**
 	 * Instantiates a new simple inet bridge task.
 	 *
-	 * @param devName the dev name
-	 * @param exec the exec
+	 * @param devName the device name
+	 * @param exec the Executor to run on
 	 */
 	public SimpleInetBridgeTask(String devName, Executor exec) {
 		this(devName, exec, null);
 	}
 	
 	/**
-	 * Run.
+	 * Main.
 	 *
 	 * @return the completable future
 	 */
@@ -371,7 +364,7 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 			Async.await(btComplete);
 		} catch (Exception e) {
 			CompletableFuture<Void> cf = new CompletableFuture<Void>();
-			
+
 			cf.completeExceptionally(e);
 			return cf;
 		}
@@ -381,5 +374,4 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 		}
 		return AsyncLoop.cfVoid;
 	}
-
 }

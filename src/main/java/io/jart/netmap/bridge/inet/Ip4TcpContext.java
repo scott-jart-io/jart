@@ -39,9 +39,8 @@ import io.jart.netmap.bridge.BufferUnlockerTask.Context;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket.Alloc;
 
-// TODO: Auto-generated Javadoc
 /**
- * The Class Ip4TcpContext.
+ * Ipv4 BaseTcpContext.
  */
 public class Ip4TcpContext extends BaseTcpContext {
 	
@@ -93,12 +92,12 @@ public class Ip4TcpContext extends BaseTcpContext {
 	}
 
 	/**
-	 * Check ip C sum.
+	 * Check ipv4 packet checksum.
+	 * Override to return true for hardware offload.
 	 *
 	 * @param ipPacket the ip packet
-	 * @return true, if successful
+	 * @return true, if valid
 	 */
-	// override to return true for hardware offload
 	@Override
 	protected boolean checkIpCSum(IpPacket ipPacket) {
 		ethBuf.position(ipPacket.getIpPos());

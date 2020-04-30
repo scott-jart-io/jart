@@ -56,16 +56,60 @@ import io.jart.netmap.bridge.BridgeTask.Context;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 import io.jart.util.ThreadAffinityExecutor;
 
-// ExplicitAffinity aware -- will fork an ExplicitAffinity implementing exec on createPipe
+/**
+ * Simple implementation of TcpContext in terms of Netmap bridge objects.
+ */
 public abstract class BaseTcpContext implements TcpContext {
+	
+	/**
+	 * A factory for creating EthBufPipeTx-related objects.
+	 */
 	public static interface EthBufPipeTxFactory {
+		
+		/**
+		 * Creates a new ByteBuffer for use with Ethernet packets.
+		 *
+		 * @return the byte buffer
+		 */
 		public ByteBuffer createEthBuf();
+		
+		/**
+		 * Creates a new pipe for message passing.
+		 *
+		 * @return the async pipe< object>
+		 */
 		public AsyncPipe<Object> createPipe();
+		
+		/**
+		 * Creates a new DataLinkTxContext associated with the given src/dst/ethertype.
+		 *
+		 * @param dstMac the dst mac
+		 * @param srcMac the src mac
+		 * @param etherType the ether type
+		 * @return the data link tx context
+		 */
 		public DataLinkTxContext createDlTxCtx(long dstMac, long srcMac, short etherType);
+		
+		/**
+		 * Creates a new IpTxContext associated with the given TxContext and ByteBuffer for Ip packets.
+		 *
+		 * @param dlTxCtx the dl tx ctx
+		 * @param ipBuf the ip buf
+		 * @return the ip tx context
+		 */
 		public IpTxContext createIpTxContext(DataLinkTxContext dlTxCtx, ByteBuffer ipBuf);
+		
+		/**
+		 * Gets the BufferUnlockerTask context.
+		 *
+		 * @return the bul context
+		 */
 		public BufferUnlockerTask.Context getBulContext();
 	}
 
+	/**
+	 * A factory for creating BaseIp4EthBufPipeTx-related objects.
+	 */
 	public static class BaseIp4EthBufPipeTxFactory implements EthBufPipeTxFactory {
 		protected final BridgeTask.Context bridgeContext;
 		protected final BufferPipeTask.Context tx;
@@ -75,6 +119,17 @@ public abstract class BaseTcpContext implements TcpContext {
 		protected final ByteBuffer someRing;
 		protected final Executor exec;
 
+		/**
+		 * Instantiates a new base ip 4 eth buf pipe tx factory.
+		 *
+		 * @param bridgeContext the bridge context
+		 * @param tx the tx
+		 * @param txBufSize the tx buf size
+		 * @param bulContext the bul context
+		 * @param eventQueue the event queue
+		 * @param someRing the some ring
+		 * @param exec the exec
+		 */
 		public BaseIp4EthBufPipeTxFactory(BridgeTask.Context bridgeContext, BufferPipeTask.Context tx, int txBufSize, BufferUnlockerTask.Context bulContext, EventQueue eventQueue, ByteBuffer someRing, Executor exec) {
 			this.bridgeContext = bridgeContext;
 			this.tx = tx;
@@ -85,33 +140,78 @@ public abstract class BaseTcpContext implements TcpContext {
 			this.exec = new ThreadAffinityExecutor((exec != null) ? exec : bridgeContext.exec);
 		}
 		
+		/**
+		 * Creates a new ByteBuffer for use with Ethernet packets.
+		 *
+		 * @return the byte buffer
+		 */
 		@Override
 		public ByteBuffer createEthBuf() {
 			return someRing.duplicate().order(ByteOrder.BIG_ENDIAN);
 		}
 		
+		/**
+		 * Creates a new pipe for message passing.
+		 *
+		 * @return the async pipe< object>
+		 */
 		@Override
 		public AsyncPipe<Object> createPipe() {
 			return new AsyncPipe<Object>(bridgeContext.taskPipeGroup);
 		}
 		
+		/**
+		 * Creates a new DataLinkTxContext associated with the given src/dst/ethertype.
+		 *
+		 * @param dstMac the dst mac
+		 * @param srcMac the src mac
+		 * @param etherType the ether type
+		 * @return the data link tx context
+		 */
 		@Override
 		public DataLinkTxContext createDlTxCtx(long dstMac, long srcMac, short etherType) {
 			return new EthTxContext(tx, txBufSize, bulContext, someRing, createEthBuf(), dstMac, srcMac, etherType);
 		}
 
+		/**
+		 * Creates a new BaseIp4EthBufPipeTx object.
+		 *
+		 * @param dlTxCtx the dl tx ctx
+		 * @param ipBuf the ip buf
+		 * @return the ip tx context
+		 */
 		@Override
 		public IpTxContext createIpTxContext(DataLinkTxContext dlTxCtx, ByteBuffer ipBuf) {
 			return new Ip4TxContext(dlTxCtx, TcpPkt.PROTO_TCP, Ip4Pkt.getDstAddr(ipBuf), Ip4Pkt.getSrcAddr(ipBuf));
 		}
 		
+		/**
+		 * Gets the BufferUnlockerTask context.
+		 *
+		 * @return the bul context
+		 */
 		@Override
 		public BufferUnlockerTask.Context getBulContext() { return bulContext; }
 	}
 	
+	/**
+	 * Extends BaseIp4EthBufPipeTxFactory with pcap writing.
+	 */
 	public static class PcapIp4EthBufPipeTxFactory extends BaseIp4EthBufPipeTxFactory {
 		protected OutputStream pcapOs;
 		
+		/**
+		 * Instantiates a new pcap ip 4 eth buf pipe tx factory.
+		 *
+		 * @param bridgeContext the bridge context
+		 * @param tx the tx
+		 * @param txBufSize the tx buf size
+		 * @param bulContext the bul context
+		 * @param eventQueue the event queue
+		 * @param someRing the some ring
+		 * @param exec the exec
+		 * @param pcapOs the pcap os
+		 */
 		public PcapIp4EthBufPipeTxFactory(Context bridgeContext, io.jart.netmap.bridge.BufferPipeTask.Context tx, int txBufSize,
 				io.jart.netmap.bridge.BufferUnlockerTask.Context bulContext, EventQueue eventQueue, ByteBuffer someRing,
 				Executor exec, OutputStream pcapOs) {
@@ -119,11 +219,24 @@ public abstract class BaseTcpContext implements TcpContext {
 			this.pcapOs = pcapOs;
 		}
 
+		/**
+		 * Creates a new pipe for message passing.
+		 *
+		 * @return the async pipe< object>
+		 */
 		@Override
 		public AsyncPipe<Object> createPipe() {
 			return new PcapIpPacketPipe(bridgeContext.taskPipeGroup, bridgeContext.exec, someRing, pcapOs);
 		}
 		
+		/**
+		 * Creates a new DataLinkTxContext object.
+		 *
+		 * @param dstMac the dst mac
+		 * @param srcMac the src mac
+		 * @param etherType the ether type
+		 * @return the data link tx context
+		 */
 		@Override
 		public DataLinkTxContext createDlTxCtx(long dstMac, long srcMac, short etherType) {
 			return new PcapEthTxContext(super.createDlTxCtx(dstMac, srcMac, etherType), pcapOs);
@@ -136,6 +249,11 @@ public abstract class BaseTcpContext implements TcpContext {
 	private final BufferUnlockerTask.Context bulContext;
 	private final IpPacket.Alloc ipPacketAlloc;
 
+	/**
+	 * New ip packet allocator.
+	 *
+	 * @return the ip packet. alloc
+	 */
 	private static IpPacket.Alloc newIpPacketAlloc() {	
 		return new IpPacket.Alloc() {
 			@Override
@@ -148,6 +266,15 @@ public abstract class BaseTcpContext implements TcpContext {
 		};
 	}
 	
+	/**
+	 * Instantiates a new base tcp context.
+	 *
+	 * @param ethBuf the eth buf
+	 * @param pipe the pipe
+	 * @param tx the tx
+	 * @param bulContext the bul context
+	 * @param ipPacketAlloc the ip packet allocator
+	 */
 	public BaseTcpContext(ByteBuffer ethBuf, AsyncPipe<Object> pipe, TcpTxContext tx, BufferUnlockerTask.Context bulContext, IpPacket.Alloc ipPacketAlloc) {
 		this.ethBuf = ethBuf;
 		this.pipe = pipe;
@@ -156,10 +283,25 @@ public abstract class BaseTcpContext implements TcpContext {
 		this.ipPacketAlloc = (ipPacketAlloc == null) ? newIpPacketAlloc() : ipPacketAlloc;
 	}
 	
+	/**
+	 * Instantiates a new base tcp context with default allocator.
+	 *
+	 * @param ethBuf the eth buf
+	 * @param pipe the pipe
+	 * @param tx the tx
+	 * @param bulContext the bul context
+	 */
 	public BaseTcpContext(ByteBuffer ethBuf, AsyncPipe<Object> pipe, TcpTxContext tx, BufferUnlockerTask.Context bulContext) {
 		this(ethBuf, pipe, tx, bulContext, null);
 	}
 	
+	/**
+	 * Instantiates a new base tcp context.
+	 *
+	 * @param factory the factory
+	 * @param firstPacket the first packet
+	 * @param ipPacketAlloc the ip packet alloc
+	 */
 	public BaseTcpContext(EthBufPipeTxFactory factory, IpPacket firstPacket, IpPacket.Alloc ipPacketAlloc) {
 		ethBuf = factory.createEthBuf();
 		pipe = factory.createPipe();
@@ -183,13 +325,30 @@ public abstract class BaseTcpContext implements TcpContext {
 		this.ipPacketAlloc = (ipPacketAlloc == null) ? newIpPacketAlloc() : ipPacketAlloc;
 	}
 	
+	/**
+	 * Instantiates a new base tcp context with default allocator.
+	 *
+	 * @param factory the factory
+	 * @param firstPacket the first packet
+	 */
 	public BaseTcpContext(EthBufPipeTxFactory factory, IpPacket firstPacket) {
 		this(factory, firstPacket, null);
 	}
 	
+	/**
+	 * Check ip checksum.
+	 *
+	 * @param ipPacket the ip packet
+	 * @return true, if successful
+	 */
 	protected abstract boolean checkIpCSum(IpPacket ipPacket);
 	
-	// override to return true for hardware offload
+	/**
+	 * Check current tcp packet checksum.
+	 * Override to return true for hardware offload.
+	 *
+	 * @return true, if successful
+	 */
 	protected boolean checkCSum() {
 		int tcpLen = ethBuf.remaining();
 		int pcsum = tx.calcPseudoHeaderPartialCSum(tcpLen);
@@ -197,16 +356,32 @@ public abstract class BaseTcpContext implements TcpContext {
 		return TcpPkt.calcCSum(pcsum, ethBuf, ethBuf.position(), tcpLen) == 0;
 	}
 	
+	/**
+	 * Gets the message pipe.
+	 *
+	 * @return the pipe
+	 */
 	@Override
 	public AsyncPipe<Object> getPipe() {
 		return pipe;
 	}
 
+	/**
+	 * Gets the TcpTxContext.
+	 *
+	 * @return the tx
+	 */
 	@Override
 	public TcpTxContext getTx() {
 		return tx;
 	}
 
+	/**
+	 * Converts applicable received messages to ByteBuffers representing a tcp packet.
+	 *
+	 * @param obj the recieved obj that MAY represent a received packet
+	 * @return the byte buffer or null if obj doesn't represent a received packet
+	 */
 	@Override
 	public ByteBuffer rx(Object obj) {
 		if(obj instanceof IpPacket) {
@@ -228,6 +403,11 @@ public abstract class BaseTcpContext implements TcpContext {
 		return null;
 	}
 
+	/**
+	 * Call when finished with the non-null ByteBuffer returned by rx(Object obj).
+	 *
+	 * @param obj the obj
+	 */
 	@Override
 	public void finishRx(Object obj) {
 		IpPacket ipPacket = (IpPacket)obj;

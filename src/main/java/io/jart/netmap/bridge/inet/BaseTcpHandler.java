@@ -36,9 +36,8 @@ import io.jart.async.AsyncPipe;
 import io.jart.net.TcpLoop;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 
-// TODO: Auto-generated Javadoc
 /**
- * The Class BaseTcpHandler.
+ * Implements a simple InetBufferSwapTask IpConnHandler in terms of a packet pipe and TcpLoop.
  */
 public class BaseTcpHandler implements InetBufferSwapTask.IpConnHandler {
 	private final AsyncPipe<? super IpPacket> packetPipe;

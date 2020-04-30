@@ -40,11 +40,9 @@ import io.jart.async.AsyncPipe;
 import io.jart.net.EthPkt;
 import io.jart.netmap.bridge.inet.InetBufferSwapTask.IpPacket;
 
-// TODO: Auto-generated Javadoc
 /**
- * The Class PcapIpPacketPipe.
+ * AsyncPipe that will log any IpPackets written to the pipe to a given stream in pcap packet format.
  */
-// AsyncPipe that will log any IpPackets written to the pipe to a given stream in pcap packet format
 public class PcapIpPacketPipe extends AsyncPipe<Object> {
 	private final ByteBuffer someRing;
 	private final OutputStream pcapOs;

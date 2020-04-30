@@ -62,16 +62,14 @@ import io.jart.netmap.bridge.BufferSwapTask;
 import io.jart.netmap.bridge.BufferUnlockerTask;
 import io.jart.pojo.Helper.POJO;
 
-// TODO: Auto-generated Javadoc
 /**
- * The Class InetBufferSwapTask.
+ * Extends BufferSwapTask to handle incoming inet packets we're configured to handle.
  */
-// delegate (some) received internet packets
 public class InetBufferSwapTask extends BufferSwapTask {
 	private static final Logger logger = Logger.getLogger(InetBufferSwapTask.class);
 
 	/**
-	 * The Class Context.
+	 * Info about running InetBufferSwapTask.
 	 */
 	public class Context {
 		public final IpPacket.Alloc ipPacketAlloc;
@@ -101,7 +99,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		}
 		
 		/**
-		 * Ip 4 tcp listener.
+		 * Convert an IpConnListener to proper ipv4 function.
 		 *
 		 * @param listener the listener
 		 * @return the to int function<? super ip packet>
@@ -112,7 +110,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * The Class IpPacket.
+	 * POJO for IpPacket.
 	 */
 	@POJO(fieldOrder = { "ethPos", "ipPos", "ipPayloadPos", "endPos", "bufferRef" })
 	public static class IpPacket {
@@ -199,34 +197,32 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * The Interface IpConnHandler.
+	 * Interface to handle an ip-based connection. (i.e., tcp, but not udp)
 	 */
-	// handles an ip-based connection
 	public static interface IpConnHandler extends AsyncRunnable {
 		
 		/**
-		 * Gets the packet pipe.
+		 * Return the pipe to which packets should be written.
 		 *
 		 * @return the packet pipe
 		 */
-		AsyncPipe<? super IpPacket> getPacketPipe(); // return the pipe to which packets will be written
+		AsyncPipe<? super IpPacket> getPacketPipe();
 		
 		/**
-		 * Dispose msg.
+		 * Dispose of unhandled non-IpPacket messages in the packet pipe at connection termination time.
 		 *
 		 * @param obj the obj
 		 */
-		void disposeMsg(Object obj); // dispose of unhandled non-IpPacket messages in the packet pipe at connection termination time
+		void disposeMsg(Object obj);
 	}
 
 	/**
-	 * The Interface IpConnHandlerAssociate.
+	 * May be implemented by an object that is associated with an IpConnHandler.
 	 */
-	// may be implemented by an object that is associated with an IpConnHandler
 	public static interface IpConnHandlerAssociate {
 		
 		/**
-		 * Gets the ip conn handler.
+		 * Gets the associated ip conn handler.
 		 *
 		 * @return the ip conn handler
 		 */
@@ -234,17 +230,8 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * The listener interface for receiving ipConn events.
-	 * The class that is interested in processing a ipConn
-	 * event implements this interface, and the object created
-	 * with that class is registered with a component using the
-	 * component's <code>addIpConnListener<code> method. When
-	 * the ipConn event occurs, that object's appropriate
-	 * method is invoked.
-	 *
-	 * @see IpConnEvent
+	 * Interface to listen to (and accepts) ip-based connections
 	 */
-	// listens to (and accepts) ip-based connections
 	public static interface IpConnListener {
 		
 		/**
@@ -286,7 +273,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	 * @param someRing the some ring
 	 * @param swapCount the swap count
 	 * @param ipPacketAlloc the ip packet alloc
-	 * @param exec the exec
+	 * @param exec the Executor to run on
 	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount, IpPacket.Alloc ipPacketAlloc, Executor exec) {
@@ -308,7 +295,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Instantiates a new inet buffer swap task.
+	 * Instantiates a new inet buffer swap task with default Executor.
 	 *
 	 * @param bridgeContext the bridge context
 	 * @param bufferUnlockerContext the buffer unlocker context
@@ -324,7 +311,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Instantiates a new inet buffer swap task.
+	 * Instantiates a new inet buffer swap task with default allocators.
 	 *
 	 * @param bridgeContext the bridge context
 	 * @param bufferUnlockerContext the buffer unlocker context
@@ -332,7 +319,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	 * @param tx the tx
 	 * @param someRing the some ring
 	 * @param swapCount the swap count
-	 * @param exec the exec
+	 * @param exec the Executor to run on
 	 */
 	public InetBufferSwapTask(BridgeTask.Context bridgeContext, BufferUnlockerTask.Context bufferUnlockerContext, BufferPipeTask.Context rx, BufferPipeTask.Context tx,
 			ByteBuffer someRing, AtomicInteger swapCount, Executor exec) {
@@ -340,7 +327,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Instantiates a new inet buffer swap task.
+	 * Instantiates a new inet buffer swap task with default allocators and Executor.
 	 *
 	 * @param bridgeContext the bridge context
 	 * @param bufferUnlockerContext the buffer unlocker context
@@ -355,7 +342,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Run.
+	 * Main.
 	 *
 	 * @return the completable future
 	 */
@@ -366,7 +353,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * The Class IpConnHandlerPacketConsumer.
+	 * Handle IpPackets for a connection.
 	 */
 	private static class IpConnHandlerPacketConsumer implements ToIntFunction<IpPacket>, IpConnHandlerAssociate {
 		private final IpConnHandler conn;
@@ -405,12 +392,12 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * Ip accept.
+	 * Accept an ip connection.
 	 *
-	 * @param conns the conns
-	 * @param app the app
+	 * @param conns the map of active ip connections
+	 * @param app the address and port pair representing this connection
 	 * @param listener the listener
-	 * @param ipPacket the ip packet
+	 * @param ipPacket the initiating ip packet
 	 */
 	private void ipAccept(Map<InetAddrAndPortPair, ToIntFunction<? super IpPacket>> conns, InetAddrAndPortPair app, IpConnListener listener, IpPacket ipPacket) {
 		IpConnHandler conn = listener.accept(ipPacket);
@@ -460,7 +447,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Ip 4 tcp listener.
+	 * Create an ip4 listener function from an IpConnListener.
 	 *
 	 * @param listener the listener
 	 * @return the to int function<? super ip packet>
@@ -473,7 +460,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * Swap action ip 4 tcp listener.
+	 * Swap action for a (possible) ipv4 tcp listener.
 	 *
 	 * @param ethBufPos the eth buf pos
 	 * @param ethPayloadPos the eth payload pos
@@ -496,7 +483,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * Swap action ip 4 tcp.
+	 * Swap action for a (possible) ipv4 tcp connection.
 	 *
 	 * @param ethBufPos the eth buf pos
 	 * @param ethPayloadPos the eth payload pos
@@ -522,7 +509,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * Swap action ip 4 udp.
+	 * Swap action for a (possible) ipv4 udp listener.
 	 *
 	 * @param ethBufPos the eth buf pos
 	 * @param ethPayloadPos the eth payload pos
@@ -545,7 +532,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 	
 	/**
-	 * Swap action ip 4.
+	 * Swap action for ipv4 packets.
 	 *
 	 * @param ethBufPos the eth buf pos
 	 * @param ethPayloadPos the eth payload pos
@@ -573,7 +560,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 	}
 
 	/**
-	 * Swap action.
+	 * Swap action for an eternet packet.
 	 *
 	 * @param rxBuf the rx buf
 	 * @param txBuf the tx buf
