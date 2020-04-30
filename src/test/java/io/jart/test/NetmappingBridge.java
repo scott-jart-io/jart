@@ -1,4 +1,3 @@
-package io.jart.test;
 // BSD 3-Clause License
 //
 // Copyright (c) 2020, Scott Petersen
@@ -28,6 +27,8 @@ package io.jart.test;
 // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+package io.jart.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;

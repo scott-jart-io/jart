@@ -154,9 +154,9 @@ public class PausableExecutor implements Executor {
 	}
 
 	/**
-	 * Thread main.
+	 * Run each runnable in a linked list.
 	 *
-	 * @param cur the cur
+	 * @param cur the head of the list
 	 */
 	private void run(Link cur) {
 		while(cur != null) {
@@ -169,7 +169,7 @@ public class PausableExecutor implements Executor {
 			cur = cur.next;
 		}		
 	}
-	
+
 	/**
 	 * Resume synchronously.
 	 * Synchronously drain the queue (running any commands on this thread -- including newly submitted runnables) until empty and then

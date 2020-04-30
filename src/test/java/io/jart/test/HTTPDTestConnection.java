@@ -1,4 +1,3 @@
-package io.jart.test;
 // BSD 3-Clause License
 //
 // Copyright (c) 2020, Scott Petersen
@@ -29,7 +28,7 @@ package io.jart.test;
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+package io.jart.test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

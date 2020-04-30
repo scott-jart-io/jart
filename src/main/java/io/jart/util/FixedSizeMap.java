@@ -45,8 +45,9 @@ import java.util.function.ToLongBiFunction;
  * Implements a fixed size cache.
  * 
  * entries will be evicted in lru order to ensure a maximum "weight"
- * and entries will also evicted possibly satisfy puts --
+ * and entries will also possibly be evicted to satisfy puts --
  * put will only replace an "older" entry, but it may not be the global lru
+ * 
  * threadsafe but all successful operations are "writes" including "get" as it
  * updates lru -- so maybe use striping for high concurrency
  *
