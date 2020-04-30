@@ -35,11 +35,32 @@ import java.util.concurrent.Executor;
 import io.jart.async.AsyncPipe;
 import io.jart.util.EventQueue;
 
+/**
+ * Extends TcpLoop with cubic congestion control.
+ */
 public abstract class TcpLoopCubic extends TcpLoop {
+	
+	/**
+	 * Creates the cubic variant of a TcpOutgoing.
+	 *
+	 * @param pipe the pipe
+	 * @param winSize the win size
+	 * @param seqNum the seq num
+	 * @return the tcp outgoing
+	 */
 	protected TcpOutgoing createTcpOut(AsyncPipe<Object> pipe, int winSize, long seqNum) {
 		return new TcpOutgoingCubic(eventQueue, pipe, mss, winSize, seqNum);
 	}
 
+	/**
+	 * Instantiates a new tcp loop w/ cubic congestion control.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the mss
+	 * @param eventQueue the event queue
+	 * @param startSeqNum the start seq num
+	 * @param exec the exec
+	 */
 	public TcpLoopCubic(TcpContext tcpContext, int mss, EventQueue eventQueue, int startSeqNum, Executor exec) {
 		super(tcpContext, mss, eventQueue, startSeqNum, exec);
 	}

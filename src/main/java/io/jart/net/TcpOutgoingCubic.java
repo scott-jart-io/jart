@@ -38,6 +38,9 @@ import io.jart.async.AsyncPipe;
 import io.jart.util.ByteChunker;
 import io.jart.util.EventQueue;
 
+/**
+ * Extend TcpOutgoing with cubic congestino control.
+ */
 public class TcpOutgoingCubic extends TcpOutgoing {
 	private static final Logger logger = Logger.getLogger(TcpOutgoingCubic.class);
 
@@ -66,6 +69,12 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 	private int lastDupeAck;
 	private int dupeAckCount;
 	
+	/**
+	 * Cubic update.
+	 *
+	 * @param tcpTimeStamp the tcp time stamp
+	 * @return the int
+	 */
 	private int cubicUpdate(double tcpTimeStamp) {
 		ackCnt++;
 		if(epochStart == Double.NEGATIVE_INFINITY) {
@@ -90,6 +99,12 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 		return tcpFriendliness ? cubicTcpFriendliness(cnt) : cnt;
 	}
 	
+	/**
+	 * Cubic tcp friendliness.
+	 *
+	 * @param cnt the cnt
+	 * @return the int
+	 */
 	private int cubicTcpFriendliness(int cnt) {
 		Wtcp = (int)Math.min(Integer.MAX_VALUE, Wtcp + ((3 * Beta) * ackCnt) / ((2 - Beta) * cwnd));
 		ackCnt = 0;
@@ -101,6 +116,9 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 		return cnt;
 	}
 	
+	/**
+	 * Cubic reset.
+	 */
 	private void cubicReset() {
 		WlastMax = 0;
 		epochStart = Double.NEGATIVE_INFINITY;
@@ -111,12 +129,28 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 		ackCnt = 0;
 	}
 
+	/**
+	 * Max pkts out.
+	 *
+	 * @return the int
+	 */
 	@Override
 	protected int maxPktsOut() { return cwnd - pktsOutstanding; }
 
+	/**
+	 * Pkts out.
+	 *
+	 * @param n the n
+	 */
 	@Override
 	protected void pktsOut(int n) { pktsOutstanding += n; }
 	
+	/**
+	 * Pkts acked.
+	 *
+	 * @param n the n
+	 * @param rtt the rtt
+	 */
 	@Override
 	protected void pktsAcked(int n, long rtt) {
 		if(n > 0) {
@@ -142,6 +176,11 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 		}
 	}
 	
+	/**
+	 * Pkt dupe acked.
+	 *
+	 * @param seqNum the seq num
+	 */
 	@Override
 	protected void pktDupeAcked(int seqNum) {
 		// Packet loss:
@@ -159,6 +198,9 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 			fastReTx();
 	}
 
+	/**
+	 * Pkt timeout.
+	 */
 	@Override
 	protected void pktTimeout() {
 		// Timeout:
@@ -167,12 +209,31 @@ public class TcpOutgoingCubic extends TcpOutgoing {
 		logger.debug("pktTimeout");
 	}
 
+	/**
+	 * Instantiates a new tcp outgoing cubic.
+	 *
+	 * @param eventQueue the event queue
+	 * @param pipe the pipe
+	 * @param mss the mss
+	 * @param winSize the win size
+	 * @param seqNum the seq num
+	 * @param sendQ the send Q
+	 */
 	public TcpOutgoingCubic(EventQueue eventQueue, AsyncPipe<Object> pipe, int mss, int winSize, long seqNum,
 			Queue<ByteChunker> sendQ) {
 		super(eventQueue, pipe, mss, winSize, seqNum, sendQ);
 		cubicReset();
 	}
 
+	/**
+	 * Instantiates a new tcp outgoing cubic.
+	 *
+	 * @param eventQueue the event queue
+	 * @param pipe the pipe
+	 * @param mss the mss
+	 * @param winSize the win size
+	 * @param seqNum the seq num
+	 */
 	public TcpOutgoingCubic(EventQueue eventQueue, AsyncPipe<Object> pipe, int mss, int winSize, long seqNum) {
 		this(eventQueue, pipe, mss, winSize, seqNum, null);
 	}

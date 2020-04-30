@@ -34,23 +34,45 @@ import java.security.SecureRandom;
 
 import io.jart.util.Murmur3;
 
+/**
+ * InetAddrAndPort for ipv4 addresses and ports.
+ */
 public class Ip4AddrAndPort extends InetAddrAndPort {
 	public static final int seed = (new SecureRandom()).nextInt();
 	
 	public int addr;
 	public int port;
 	
+	/**
+	 * Instantiates a new ip 4 addr and port.
+	 */
 	public Ip4AddrAndPort() {}
 	
+	/**
+	 * Instantiates a new ip 4 addr and port.
+	 *
+	 * @param addr the addr
+	 * @param port the port
+	 */
 	public Ip4AddrAndPort(int addr, int port) {
 		this.addr = addr;
 		this.port = port;
 	}
 	
+	/**
+	 * Duplicate this.
+	 *
+	 * @return the ip 4 addr and port
+	 */
 	public Ip4AddrAndPort dupe() {
 		return new Ip4AddrAndPort(addr, port);
 	}
 	
+	/**
+	 * Hash code.
+	 *
+	 * @return the int
+	 */
 	@Override
 	public int hashCode() {
 		int k1 = Murmur3.mixK1(addr);
@@ -62,6 +84,12 @@ public class Ip4AddrAndPort extends InetAddrAndPort {
 		return Murmur3.fmixj(h1, 6);
 	}
 	
+	/**
+	 * Equals operator.
+	 *
+	 * @param otherObj the other obj
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean equals(Object otherObj) {
 		if(otherObj instanceof Ip4AddrAndPort) {

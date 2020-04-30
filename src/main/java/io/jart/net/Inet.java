@@ -32,7 +32,20 @@ package io.jart.net;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Helper class for internet packets.
+ */
 public class Inet {
+	private Inet() {}
+	
+	/**
+	 * Calculate partial checksum.
+	 *
+	 * @param b the ByteBuffer
+	 * @param pos the position for the data's start
+	 * @param size the number of bytes to checksum
+	 * @return the partial checksum
+	 */
 	public static int calcPartialCSum(ByteBuffer b, int pos, int size) {
 		long sum;
 		int align = Math.min(8 - (pos & 7), size);
@@ -83,22 +96,48 @@ public class Inet {
 		return (int)sum;
 	}
 	
+	/**
+	 * Calculate a final checksum from a partial.
+	 *
+	 * @param partialSum the partial sum
+	 * @return the checksum
+	 */
 	public static short calcFinalCSum(int partialSum) {
 		partialSum = (partialSum >>> 16) + (0xffff & partialSum);
 		partialSum = (partialSum >>> 16) + (0xffff & partialSum);
 		return (short)~partialSum;		
 	}
 	
+	/**
+	 * Calculate a final checksum for data in a ByteBuffer.
+	 *
+	 * @param b the ByteBuffer
+	 * @param pos the pos
+	 * @param size the size
+	 * @return the checksum
+	 */
 	public static short calcCSum(ByteBuffer b, int pos, int size) {
 		return calcFinalCSum(calcPartialCSum(b, pos, size));
 	}
 	
-	// pos => b.position()
+	/**
+	 * Calculate a final checksum for data in a ByteBuffer starting at pos and ending at the ByteBuffer's current position.
+	 *
+	 * @param b the ByteBuffer
+	 * @param pos the pos
+	 * @param size the size
+	 * @return the checksum
+	 */
 	public static short calcCSum(ByteBuffer b, int pos) {
 		return calcCSum(b, pos, b.position() - pos);
 	}
 
-	// b.position() => b.limit()
+	/**
+	 * Calculate a final checksum for data in a ByteBuffer in range [position(), limit()].
+	 *
+	 * @param b the ByteBuffer
+	 * @return the checksum
+	 */
 	public static short calcCSum(ByteBuffer b) {
 		return calcCSum(b, b.position(), b.remaining());
 	}

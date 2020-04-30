@@ -39,6 +39,9 @@ import java.util.function.Function;
 
 import io.jart.async.AsyncPipe;
 
+/**
+ * Simple wrapper for a TxContext that logs transmitted packets in pcap format.
+ */
 public class PcapEthTxContext implements DataLinkTxContext {
 	private final TxContext tx;
 	private final OutputStream pcapOs;
@@ -46,27 +49,59 @@ public class PcapEthTxContext implements DataLinkTxContext {
 	private int ethBufPos;
 	private boolean first = true;
 	
+	/**
+	 * Instantiates a new pcap eth tx context.
+	 *
+	 * @param tx the tx to wrap
+	 * @param pcapOs the destination
+	 */
 	public PcapEthTxContext(TxContext tx, OutputStream pcapOs) {
 		this.tx = tx;
 		this.pcapOs = pcapOs;
 	}
 	
+	/**
+	 * Start tx.
+	 *
+	 * @param exec the exec
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Buffer> startTx(Executor exec) {
 		return tx.startTx(exec);
 	}
 
+	/**
+	 * Start tx.
+	 *
+	 * @param <D> the generic type
+	 * @param <O> the generic type
+	 * @param dst the dst
+	 * @param fun the fun
+	 * @param exec the exec
+	 */
 	@Override
 	public<D, O extends D> void startTx(AsyncPipe<D> dst, Function<Buffer, O> fun, Executor exec) {
 		tx.startTx(dst, fun, exec);
 	}
 
+	/**
+	 * Try start tx.
+	 *
+	 * @return the buffer
+	 */
 	@Override
 	public Buffer tryStartTx() {
 		return tx.tryStartTx();
 	}
 
-	// we're stateful and can only use one buffer at a time
+	/**
+	 * Use.
+	 * We're stateful and can only use one buffer at a time.
+	 *
+	 * @param buffer the buffer
+	 * @return the byte buffer
+	 */
 	@Override
 	public ByteBuffer use(Buffer buffer) {
 		ethBuf = tx.use(buffer);
@@ -75,6 +110,11 @@ public class PcapEthTxContext implements DataLinkTxContext {
 		return ethBuf;
 	}
 
+	/**
+	 * Finish.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void finish(Buffer buffer) {
 		if(ethBuf != null) {
@@ -102,6 +142,11 @@ public class PcapEthTxContext implements DataLinkTxContext {
 		tx.finish(buffer);
 	}
 
+	/**
+	 * Abort.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void abort(Buffer buffer) {
 		ethBuf = null;

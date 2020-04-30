@@ -32,10 +32,20 @@ package io.jart.net;
 
 import java.nio.ByteBuffer;
 
+/**
+ * Helper class for Udp packets.
+ */
 public class UdpPkt {
 	public static final byte PROTO_UDP = 0x11;
 	
-	// basic validity check -- does NOT verify csum
+	private UdpPkt() {} // hide constructor
+	
+	/**
+	 * Basic validity check -- does NOT verify csum.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return true, if valid
+	 */
 	public static boolean valid(ByteBuffer b) {
 		int size = b.limit() - b.position();
 		
@@ -44,38 +54,92 @@ public class UdpPkt {
 		return getLength(b) <= size;
 	}
 	
+	/**
+	 * Gets the src port.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return the src port
+	 */
 	public static int getSrcPort(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(b.position());
 	}
 	
+	/**
+	 * Sets the src port.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @param port the port
+	 */
 	public static void setSrcPort(ByteBuffer b, int port) {
 		b.putShort(b.position(), (short)port);
 	}
 
+	/**
+	 * Gets the dst port.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return the dst port
+	 */
 	public static int getDstPort(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(2 + b.position());
 	}
 	
+	/**
+	 * Sets the dst port.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @param port the port
+	 */
 	public static void setDstPort(ByteBuffer b, int port) {
 		b.putShort(2 + b.position(), (short)port);
 	}
 	
+	/**
+	 * Gets the length.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return the length
+	 */
 	public static int getLength(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(4 + b.position());
 	}
 	
+	/**
+	 * Sets the length.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @param port the port
+	 */
 	public static void setLength(ByteBuffer b, int port) {
 		b.putShort(4 + b.position(), (short)port);
 	}
 	
+	/**
+	 * Gets the checksum.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return the c sum
+	 */
 	public static int getCSum(ByteBuffer b) {
 		return 0xffff & (int)b.getShort(6 + b.position());
 	}
 	
+	/**
+	 * Sets the checksum.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @param port the port
+	 */
 	public static void setCSum(ByteBuffer b, int port) {
 		b.putShort(6 + b.position(), (short)port);
 	}
 	
+	/**
+	 * Payload pos.
+	 *
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @return the int
+	 */
 	public static int payloadPos(ByteBuffer b) {
 		return b.position() + 8;
 	}

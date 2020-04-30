@@ -34,6 +34,9 @@ import java.security.SecureRandom;
 
 import io.jart.util.Murmur3;
 
+/**
+ * InetAddrAndPortPair for ipv4 addresses and ports.
+ */
 public class Ip4AddrAndPortPair extends InetAddrAndPortPair {
 	public static final int seed = (new SecureRandom()).nextInt();
 	
@@ -42,8 +45,19 @@ public class Ip4AddrAndPortPair extends InetAddrAndPortPair {
 	public int addrB;
 	public int portB;
 
+	/**
+	 * Instantiates a new ip 4 addr and port pair.
+	 */
 	public Ip4AddrAndPortPair() {}
 	
+	/**
+	 * Instantiates a new ip 4 addr and port pair.
+	 *
+	 * @param addrA the addr A
+	 * @param portA the port A
+	 * @param addrB the addr B
+	 * @param portB the port B
+	 */
 	public Ip4AddrAndPortPair(int addrA, int portA, int addrB, int portB) {
 		this.addrA = addrA;
 		this.portA = portA;
@@ -51,10 +65,20 @@ public class Ip4AddrAndPortPair extends InetAddrAndPortPair {
 		this.portB = portB;
 	}
 	
+	/**
+	 * Duplicate this.
+	 *
+	 * @return the ip 4 addr and port pair
+	 */
 	public Ip4AddrAndPortPair dupe() {
 		return new Ip4AddrAndPortPair(addrA, portA, addrB, portB);
 	}
 	
+	/**
+	 * Hash code.
+	 *
+	 * @return the int
+	 */
 	@Override
 	public int hashCode() {
 		int k1 = Murmur3.mixK1(addrA);
@@ -69,6 +93,12 @@ public class Ip4AddrAndPortPair extends InetAddrAndPortPair {
 		return Murmur3.fmixj(h1, 12);
 	}
 	
+	/**
+	 * Equals operator.
+	 *
+	 * @param otherObj the other obj
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean equals(Object otherObj) {
 		if(otherObj instanceof Ip4AddrAndPortPair) {

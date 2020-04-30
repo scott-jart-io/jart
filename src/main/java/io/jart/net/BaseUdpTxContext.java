@@ -37,6 +37,9 @@ import java.util.function.Function;
 
 import io.jart.async.AsyncPipe;
 
+/**
+ * Basic implemenation of UdpTxContext.
+ */
 public class BaseUdpTxContext implements UdpTxContext {
 	private final IpTxContext txCtx;
 	private final int srcPort;
@@ -44,29 +47,65 @@ public class BaseUdpTxContext implements UdpTxContext {
 	protected ByteBuffer udpBuf;
 	protected int udpBufPos;
 	
+	/**
+	 * Instantiates a new base udp tx context.
+	 *
+	 * @param txCtx the tx ctx
+	 * @param srcPort the src port
+	 * @param dstPort the dst port
+	 */
 	public BaseUdpTxContext(IpTxContext txCtx, int srcPort, int dstPort) {
 		this.txCtx = txCtx;
 		this.srcPort = srcPort;
 		this.dstPort = dstPort;
 	}
 	
+	/**
+	 * Start tx.
+	 *
+	 * @param exec the exec
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Buffer> startTx(Executor exec) {
 		return txCtx.startTx(exec);
 	}
 
+	/**
+	 * Start tx.
+	 *
+	 * @param <D> the generic type
+	 * @param <O> the generic type
+	 * @param dst the dst
+	 * @param fun the fun
+	 * @param exec the exec
+	 */
 	@Override
 	public<D, O extends D> void startTx(AsyncPipe<D> dst, Function<Buffer, O> fun, Executor exec) {
 		txCtx.startTx(dst, fun, exec);
 	}
 
+	/**
+	 * Try start tx.
+	 *
+	 * @return the buffer
+	 */
 	@Override
 	public Buffer tryStartTx() {
 		return txCtx.tryStartTx();
 	}
 
+	/**
+	 * Sets the csum.
+	 */
 	protected void setCsum() {} // none by default
 
+	/**
+	 * Use.
+	 *
+	 * @param buffer the buffer
+	 * @return the byte buffer
+	 */
 	// we're stateful and can only use one buffer at a time
 	@Override
 	public ByteBuffer use(Buffer buffer) {
@@ -80,6 +119,11 @@ public class BaseUdpTxContext implements UdpTxContext {
 		return udpBuf;
 	}
 
+	/**
+	 * Finish.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void finish(Buffer buffer) {
 		udpBuf.putShort(udpBufPos + 4, (short)(udpBuf.position() - udpBufPos)); // length
@@ -88,6 +132,11 @@ public class BaseUdpTxContext implements UdpTxContext {
 		txCtx.finish(buffer);
 	}
 
+	/**
+	 * Abort.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void abort(Buffer buffer) {
 		udpBuf = null;

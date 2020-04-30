@@ -30,7 +30,9 @@
 
 package io.jart.net;
 
-// encapsulates a transmit connection (immutable src/dst) at the data link layer
+/**
+ * Encapsulates a transmit connection (immutable src/dst) at the data link layer.
+ */
 public interface DataLinkTxContext extends TxContext {
 
 }

@@ -43,47 +43,123 @@ import io.jart.util.ByteChunk;
 import io.jart.util.ByteChunker;
 import io.jart.util.EventQueue;
 
-// all timings in microseconds
+/**
+ * Handles outputing tcp packets.
+ * All timings in microseconds.
+ */
 public class TcpOutgoing {
 	private final static Logger logger = Logger.getLogger(TcpOutgoing.class);
 
+	/**
+	 * Interface representing a tcp segment.
+	 */
 	public static interface Segment {
+		
+		/**
+		 * Checks if sending this segment would be a retry.
+		 *
+		 * @return true, if send would be a retry
+		 */
 		public boolean isRetry();
 	}
 	
+	/**
+	 * An "actual" segment -- as opposed to a virtual one.
+	 */
 	static abstract class ActualSegment extends AsyncEventQueue.Event implements Segment {
 		ActualSegment next; // next unacknowledged segment
 		final int seqNum;
 		short txCount; // 0 means unsent, negative means ignore
 
+		/**
+		 * Instantiates a new actual segment.
+		 *
+		 * @param segPipe the seg pipe
+		 * @param seqNum the seq num
+		 */
 		ActualSegment(AsyncPipe<Object> segPipe, int seqNum) {
 			super(segPipe);
 			this.seqNum = seqNum;
 		}
 	
+		/**
+		 * Checks if is retry.
+		 *
+		 * @return true, if is retry
+		 */
 		@Override
 		public boolean isRetry() { return true; }
 		
+		/**
+		 * Control bits.
+		 *
+		 * @return the short
+		 */
 		abstract short controlBits();
+		
+		/**
+		 * Ready for tx of this segment.
+		 *
+		 * @param tx the tx
+		 */
 		void readyTx(TcpTxContext tx) {
 			tx.setSeqNum(seqNum);
 		}
+		
+		/**
+		 * Put segment to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 */
 		void putTo(ByteBuffer dst, TcpTxContext tx) {}
+		
+		/**
+		 * Returns true if this packet needs acknowledgement.
+		 *
+		 * @return true if this packet requires acknowledgement
+		 */
 		boolean needsAck() { return true; }
+		
+		/**
+		 * Do any cleanup needed.
+		 */
 		void dispose() {}
 	}
 	
+	/**
+	 * An actual SynSegment.
+	 */
 	static class SynSegment extends ActualSegment {
 		private final byte winScale;
 		
+		/**
+		 * Instantiates a new syn segment.
+		 *
+		 * @param segPipe the seg pipe
+		 * @param seqNum the seq num
+		 * @param winScale the win scale
+		 */
 		SynSegment(AsyncPipe<Object> segPipe, int seqNum, byte winScale) {
 			super(segPipe, seqNum);
 			this.winScale = winScale;
 		}
 		
+		/**
+		 * Control bits.
+		 *
+		 * @return the short
+		 */
 		@Override
 		short controlBits() { return TcpPkt.SYN; }
 
+		/**
+		 * Put options to the ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 * @param winScale the win scale
+		 */
 		public static void putOptionsTo(ByteBuffer dst, TcpTxContext tx, byte winScale) {
 			dst.put((byte)3); // kind
 			dst.put((byte)3); // length
@@ -92,6 +168,12 @@ public class TcpOutgoing {
 			tx.finishOptions();			
 		}
 		
+		/**
+		 * Put to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 */
 		@Override
 		void putTo(ByteBuffer dst, TcpTxContext tx) {
 			putOptionsTo(dst, tx, winScale);
@@ -99,39 +181,85 @@ public class TcpOutgoing {
 		}
 	}
 	
+	/**
+	 * A syn/ack segment.
+	 */
 	static class SynAckSegment extends SynSegment {
+		
+		/**
+		 * Instantiates a new syn ack segment.
+		 *
+		 * @param segPipe the seg pipe
+		 * @param seqNum the seq num
+		 * @param winScale the win scale
+		 */
 		SynAckSegment(AsyncPipe<Object> segPipe, int seqNum, byte winScale) {
 			super(segPipe, seqNum, winScale);
 		}
 		
+		/**
+		 * Control bits.
+		 *
+		 * @return the short
+		 */
 		@Override
 		short controlBits() { return TcpPkt.SYN | TcpPkt.ACK; }
 	}
 	
+	/**
+	 * A data-bearing segment.
+	 */
 	static class DataSegment extends ActualSegment {
 		public final ByteChunk[] byteChunks;
 		public final boolean psh;
 		
+		/**
+		 * Instantiates a new data segment.
+		 *
+		 * @param segPipe the seg pipe
+		 * @param seqNum the seq num
+		 * @param byteChunks the byte chunks
+		 * @param psh the psh
+		 */
 		DataSegment(AsyncPipe<Object> segPipe, int seqNum, ByteChunk[] byteChunks, boolean psh) {
 			super(segPipe, seqNum);
 			this.byteChunks = byteChunks;
 			this.psh = psh;
 		}
 		
+		/**
+		 * Control bits.
+		 *
+		 * @return the short
+		 */
 		@Override
 		short controlBits() { return (short) (TcpPkt.ACK | (psh ? TcpPkt.PSH : 0)); }
 		
+		/**
+		 * Put to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 */
 		@Override
 		void putTo(ByteBuffer dst, TcpTxContext tx) {
 			for(ByteChunk bc: byteChunks)
 				bc.putTo(dst);
 		}
 		
+		/**
+		 * Needs ack if we have any data.
+		 *
+		 * @return true, if successful
+		 */
 		@Override
 		boolean needsAck() {
 			return byteChunks.length > 0; // don't retry empty ack
 		}
 		
+		/**
+		 * Clean up byteChunks.
+		 */
 		@Override
 		void dispose() {
 			for(int i = 0; i < byteChunks.length; i++) {
@@ -141,52 +269,150 @@ public class TcpOutgoing {
 		}		
 	}
 
+	/**
+	 * Segment with fin flag set.
+	 */
 	static class FinSegment extends DataSegment {
+		
+		/**
+		 * Instantiates a new fin segment.
+		 *
+		 * @param segPipe the seg pipe
+		 * @param seqNum the seq num
+		 * @param byteChunks the byte chunks
+		 */
 		FinSegment(AsyncPipe<Object> segPipe, int seqNum, ByteChunk[] byteChunks) {
 			super(segPipe, seqNum, byteChunks, true);
 		}
 		
+		/**
+		 * Control bits.
+		 *
+		 * @return the short
+		 */
 		@Override
 		short controlBits() { return TcpPkt.ACK | TcpPkt.FIN; }
 
+		/**
+		 * Always needs ack.
+		 *
+		 * @return true, if successful
+		 */
 		@Override
 		boolean needsAck() { return true; }
 	}
 	
+	/**
+	 * A virtual placeholder Segment.
+	 */
 	static abstract class VirtualSegment implements Segment {		
+		
+		/**
+		 * Checks if is retry.
+		 *
+		 * @return true, if is retry
+		 */
 		@Override
 		public boolean isRetry() { return false; }
 		
+		/**
+		 * Ready tx.
+		 *
+		 * @param tx the tx
+		 * @param out the out
+		 */
 		void readyTx(TcpTxContext tx, TcpOutgoing out) {
 			tx.setSeqNum(out.seqNum);
 		}
+		
+		/**
+		 * Actualize to a ByteBuffer.
+		 * Like ActualSegment putTo but creates and returns corresponding ActualSegment.
+		 *
+		 * @param dst the destination
+		 * @param tx the tx
+		 * @param out the out
+		 * @return the actual segment
+		 */
 		abstract ActualSegment actualizeTo(ByteBuffer dst, TcpTxContext tx, TcpOutgoing out);
+		
+		/**
+		 * Flags mask.
+		 *
+		 * @return the int
+		 */
 		abstract int flagsMask();
 	}
 	
+	/**
+	 * A virtual syn segment.
+	 */
 	static class VirtualSynSegment extends VirtualSegment {
+		
+		/**
+		 * Actualize to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 * @param out the out
+		 * @return the actual segment
+		 */
 		@Override
 		ActualSegment actualizeTo(ByteBuffer dst, TcpTxContext tx, TcpOutgoing out) {
 			SynSegment.putOptionsTo(dst, tx, out.desiredWinScale());
 			return new SynSegment(out.pipe, out.seqNum, out.desiredWinScale());
 		}
 		
+		/**
+		 * Flags mask.
+		 *
+		 * @return the int
+		 */
 		@Override
 		int flagsMask() { return ~SYN_SEG_QUEUED; }
 	}
 	
+	/**
+	 * A virtual syn/ack segment.
+	 */
 	static class VirtualSynAckSegment extends VirtualSynSegment {
+		
+		/**
+		 * Actualize to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 * @param out the out
+		 * @return the actual segment
+		 */
 		@Override
 		ActualSegment actualizeTo(ByteBuffer dst, TcpTxContext tx, TcpOutgoing out) {
 			SynSegment.putOptionsTo(dst, tx, out.desiredWinScale());
 			return new SynAckSegment(out.pipe, out.seqNum, out.desiredWinScale());
 		}
 		
+		/**
+		 * Flags mask.
+		 *
+		 * @return the int
+		 */
 		@Override
 		int flagsMask() { return ~SYN_ACK_SEG_QUEUED; }
 	}
 	
+	/**
+	 * A virtual data-bearing segment.
+	 */
 	static class VirtualDataSegment extends VirtualSegment {
+		
+		/**
+		 * Chunk to a ByteBuffer.
+		 * Materializes/writes applicable data to the ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param out the out
+		 * @return the ByteChunks materialized as dst is written to
+		 */
 		ByteChunk[] chunkTo(ByteBuffer dst, TcpOutgoing out) {
 			int chunkIndex = 0;
 			ByteChunk[] chunkArray = out.chunkArray;
@@ -205,16 +431,41 @@ public class TcpOutgoing {
 			return Arrays.copyOfRange(chunkArray, 0, chunkIndex);
 		}
 		
+		/**
+		 * Actualize to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 * @param out the out
+		 * @return the actual segment
+		 */
 		@Override
 		ActualSegment actualizeTo(ByteBuffer dst, TcpTxContext tx, TcpOutgoing out) {
 			return new DataSegment(out.pipe, out.seqNum, chunkTo(dst, out), out.isEmpty());
 		}
 		
+		/**
+		 * Flags mask.
+		 *
+		 * @return the int
+		 */
 		@Override
 		int flagsMask() { return ~DATA_SEG_QUEUED; }
 	}
 	
+	/**
+	 * A virtual fin segment.
+	 */
 	static class VirtualFinSegment extends VirtualDataSegment {
+		
+		/**
+		 * Actualize to a ByteBuffer.
+		 *
+		 * @param dst the dst
+		 * @param tx the tx
+		 * @param out the out
+		 * @return the actual segment
+		 */
 		@Override
 		ActualSegment actualizeTo(ByteBuffer dst, TcpTxContext tx, TcpOutgoing out) {
 			ActualSegment segment = new FinSegment(out.pipe, out.seqNum, chunkTo(dst, out));
@@ -226,29 +477,72 @@ public class TcpOutgoing {
 			return segment;
 		}
 		
+		/**
+		 * Flags mask.
+		 *
+		 * @return the int
+		 */
 		@Override
 		int flagsMask() { return ~FIN_SEG_QUEUED; }
 	}
 
+	/**
+	 * TcpOutgoing-specific Exception.
+	 */
 	@SuppressWarnings("serial")
 	public static class Exception extends java.lang.Exception {
+		
+		/**
+		 * Instantiates a new exception.
+		 */
 		public Exception() {
 			super();
 		}
+		
+		/**
+		 * Instantiates a new exception.
+		 *
+		 * @param message the message
+		 * @param cause the cause
+		 * @param enableSuppression the enable suppression
+		 * @param writableStackTrace the writable stack trace
+		 */
 		public Exception(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
 			super(message, cause, enableSuppression, writableStackTrace);
 		}
+		
+		/**
+		 * Instantiates a new exception.
+		 *
+		 * @param message the message
+		 * @param cause the cause
+		 */
 		public Exception(String message, Throwable cause) {
 			super(message, cause);
 		}
+		
+		/**
+		 * Instantiates a new exception.
+		 *
+		 * @param message the message
+		 */
 		public Exception(String message) {
 			super(message);
 		}
+		
+		/**
+		 * Instantiates a new exception.
+		 *
+		 * @param cause the cause
+		 */
 		public Exception(Throwable cause) {
 			super(cause);
 		}
 	}
 	
+	/**
+	 * RetryExceeded Exception. Raised when a segment was retried too many times.
+	 */
 	@SuppressWarnings("serial")
 	public final class RetryExceededException extends TcpOutgoing.Exception {}
 	
@@ -258,11 +552,34 @@ public class TcpOutgoing {
 	private static final Segment virtDataSeg = new VirtualDataSegment();
 	private static final Segment virtFinSeg = new VirtualFinSegment();
 	
-	// override me
 	// various basic settings
+
+	/**
+	 * Returns desired win scale. Override me.
+	 *
+	 * @return the byte
+	 */
 	protected byte desiredWinScale() { return 9; }
+	
+	/**
+	 * Returns maximum number of retries for a segment before we raise an exception.
+	 *
+	 * @return the short
+	 */
 	protected short maxRetries() { return 15; }
+	
+	/**
+	 * Returns minimum segment ack timeout in microseconds. Retry timer starts at this timer.
+	 *
+	 * @return the int
+	 */
 	protected int minTimeout() { return 500; }
+	
+	/**
+	 * Returns maximum segment ack timeout in microseconds. Retry timer will not be set higher than this value.
+	 *
+	 * @return the int
+	 */
 	protected int maxTimeout() { return 15*1000*1000; }
 	
 	protected final EventQueue eventQueue;
@@ -295,12 +612,22 @@ public class TcpOutgoing {
 	private ByteChunk[] chunkArray = new ByteChunk[4];
 	private ByteChunker curChunker;
 	
+	/**
+	 * Get the next data chunker.
+	 *
+	 * @return the byte chunker
+	 */
 	private ByteChunker nextChunker() {
 		if(curChunker != null)
 			curChunker.dispose();
 		return curChunker = sendQ.poll();
 	}
 
+	/**
+	 * Returns the current data chunker or the next one if there is no current chunker.
+	 *
+	 * @return the byte chunker
+	 */
 	private ByteChunker curChunker() {
 		return (curChunker != null) ?
 				curChunker : nextChunker();
@@ -313,6 +640,11 @@ public class TcpOutgoing {
 	private ActualSegment rttSeg;
 	private long rttSegTime;
 	
+	/**
+	 * Eu win size.
+	 *
+	 * @return the int
+	 */
 	// effective useable win size (rfc813)
 	private int euWinSize() {
 		int uWinSize = winSize - unackSize;
@@ -320,16 +652,31 @@ public class TcpOutgoing {
 		return (uWinSize < winSize >> 2) ? 0 : uWinSize;
 	}
 
+	/**
+	 * Rto.
+	 *
+	 * @return the int
+	 */
 	// rfc6298
 	private int rto() { return srtt + 4 * rttvar; }
 
+	/**
+	 * Cancel a segment.
+	 *
+	 * @param segment the segment
+	 */
 	private void cancel(ActualSegment segment) {
 		eventQueue.remove(segment);
 		segment.txCount = -1;
 		segment.dispose();
 	}
 	
-	// returns any syn/fin control bits
+	/**
+	 * Perform bookkeeping for a segment that was acked.
+	 *
+	 * @param segment the segment
+	 * @return the syn/fin control bits of the segment
+	 */
 	private short acked(ActualSegment segment) {
 		if(segment == rttSeg) {
 			int newRtt = (int) (System.nanoTime()/1000 - rttSegTime);
@@ -347,6 +694,10 @@ public class TcpOutgoing {
 		return synFin;
 	}
 	
+	/**
+	 * Fast re tx.
+	 * Queues all unacked packets for re tx.
+	 */
 	protected void fastReTx() {
 		ActualSegment unackCur = unackHead;
 
@@ -358,17 +709,60 @@ public class TcpOutgoing {
 	}
 
 	// congestion control -- override me
+
+	/**
+	 * Max number of pkts allowed to be outstanding.
+	 *
+	 * @return the int
+	 */
 	protected int maxPktsOut() { return Integer.MAX_VALUE; } // how many packets can we output?
+	
+	/**
+	 * Note that we have new packets outstanding.
+	 *
+	 * @param n the n
+	 */
 	protected void pktsOut(int n) {} // note n packets output
-	protected void pktsAcked(int n, long rtt) {} // note n packets acked
-	protected void pktDupeAcked(int seqNum) {} // note we saw a dupe ack
-	protected void pktTimeout() {} // note we saw a packet timeout
+	
+	/**
+	 * Note n packets acked.
+	 *
+	 * @param n the n
+	 * @param rtt the rtt
+	 */
+	protected void pktsAcked(int n, long rtt) {}
+	
+	/**
+	 * Note we saw a dupe ack.
+	 *
+	 * @param seqNum the seq num
+	 */
+	protected void pktDupeAcked(int seqNum) {}
+	
+	/**
+	 * Note we saw a packet timeout.
+	 */
+	protected void pktTimeout() {}
 	
 	public final Queue<ByteChunker> sendQ; // queue of stuff to senf
 
-	// override me
-	protected void txPut(int n) {} // put this many bytes into a tx buffer (maybe useful to track send q)
+	/**
+	 * Note n bytes put into a tx buffer.
+	 *
+	 * @param n the n
+	 */
+	protected void txPut(int n) {} // (maybe useful to track send q)
 	
+	/**
+	 * Instantiates a new tcp outgoing.
+	 *
+	 * @param eventQueue the event queue
+	 * @param pipe the pipe
+	 * @param mss the tcp mss
+	 * @param winSize the win size
+	 * @param seqNum the tcp sequence num
+	 * @param sendQ the send Q or null to construct a new one
+	 */
 	public TcpOutgoing(EventQueue eventQueue, AsyncPipe<Object> pipe, int mss, int winSize, long seqNum, Queue<ByteChunker> sendQ) {
 		this.eventQueue = eventQueue;
 		this.pipe = pipe;
@@ -378,10 +772,22 @@ public class TcpOutgoing {
 		this.sendQ = (sendQ == null) ? new ConcurrentLinkedQueue<ByteChunker>() : sendQ;
 	}
 	
+	/**
+	 * Instantiates a new tcp outgoing new sendQ.
+	 *
+	 * @param eventQueue the event queue
+	 * @param pipe the pipe
+	 * @param mss the mss
+	 * @param winSize the win size
+	 * @param seqNum the seq num
+	 */
 	public TcpOutgoing(EventQueue eventQueue, AsyncPipe<Object> pipe, int mss, int winSize, long seqNum) {
 		this(eventQueue, pipe, mss, winSize, seqNum, null);
 	}
 	
+	/**
+	 * Call to do disposal of resources.
+	 */
 	public void dispose() {
 		while(unackHead != null) {
 			cancel(unackHead);
@@ -391,13 +797,46 @@ public class TcpOutgoing {
 			curChunker.dispose();
 	}
 	
+	/**
+	 * Checks if is empty.
+	 *
+	 * @return true, if is empty
+	 */
 	public boolean isEmpty() { return curChunker() == null; }
+	
+	/**
+	 * Returns number of unacknowledged bytes.
+	 *
+	 * @return the int
+	 */
 	public int unacked() { return unackSize; } // current unacked
+	
+	/**
+	 * Returns current window size.
+	 *
+	 * @return the int
+	 */
 	public int winSize() { return winSize; }
-	public boolean finAcked() { return (flags & FIN_ACKED) != 0; } // have we seen our fin acked?
+	
+	/**
+	 * Have we seen our fin acked?.
+	 *
+	 * @return true, if outgoing fin has been acked
+	 */
+	public boolean finAcked() { return (flags & FIN_ACKED) != 0; }
+	
+	/**
+	 * Have we outputted a fin?
+	 *
+	 * @return true, if fin packet has been ouputted
+	 */
 	public boolean finOut() { return (flags & FIN_OUT) != 0; }
 	
-	// output packets if we can
+	/**
+	 * Output some packets.
+	 *
+	 * @return the int
+	 */
 	public int output() {
 		int eflags = flags | ((euWinSize() > 0 && !isEmpty()) ? DATA_SEG_WAITING : 0);
 
@@ -427,8 +866,13 @@ public class TcpOutgoing {
 		return n;
 	}
 	
-	// update internal state w/ new ackNum/winSize from received packet
-	// returns # bytes acknowledged or -1 if ack is bad
+	/**
+	 * Update internal state w/ new ackNum/winSize from received packet.
+	 *
+	 * @param ackNum the ack num
+	 * @param winSize the win size
+	 * @return # bytes acknowledged or -1 if ack is bad
+	 */
 	public int update(long ackNum, int winSize) {
 		int acked = unackSize - (seqNum - (int)ackNum);
 		
@@ -476,27 +920,45 @@ public class TcpOutgoing {
 	}
 	
 	// queue various special packets
-	// these "jump" the sendQ!
+	// these "jump" the sendQ! (ahead of data)
+	
+	/**
+	 * Queue a syn.
+	 */
 	public void queueSyn() {
 		flags |= SYN_SEG_WAITING;
 	}
 	
+	/**
+	 * Queue syn ack.
+	 */
 	public void queueSynAck() {
 		flags |= SYN_ACK_SEG_WAITING;
 	}
 	
+	/**
+	 * Queue ack.
+	 */
 	public void queueAck() {
 		// we'll happily send empty data segments as pure acks
 		flags |= DATA_SEG_WAITING;
 	}
 
+	/**
+	 * Queue fin.
+	 */
 	public void queueFin() {
 		flags |= (FIN_SEG_WAITING | FIN_OUT);
 	}
 
-	// checks a segment for tx
-	// returns true to tx , false to ignore
-	// throws exceptions for non-recoverable errors
+	/**
+	 * Checks/readys a segment for tx.
+	 *
+	 * @param tx the tx
+	 * @param segment the segment
+	 * @return true to tx , false to ignore
+	 * @throws RetryExceededException the retry exceeded exception if segment hsa been retried max times
+	 */
 	public boolean readyTx(TcpTxContext tx, Segment segment) throws RetryExceededException {
 		if(segment instanceof VirtualSegment) {
 			((VirtualSegment)segment).readyTx(tx, this);
@@ -513,12 +975,24 @@ public class TcpOutgoing {
 		return true;
 	}
 
-	// check if a segment is ok to tx
+	/**
+	 * Checks if a segment is valid.
+	 *
+	 * @param segment the segment
+	 * @return true, if is valid
+	 */
 	public boolean isValid(Segment segment) {
 		return !(segment instanceof ActualSegment) || (((ActualSegment)segment).txCount >= 0);
 	}
 	
-	// put the segment to the dst for purpose of tx
+	/**
+	 * Put a segment to a ByteBuffer as part of tx.
+	 *
+	 * @param dst the dst
+	 * @param tx the tx
+	 * @param segment the segment
+	 * @return segment's control bits
+	 */
 	public short putToTx(ByteBuffer dst, TcpTxContext tx, Segment segment) {
 		ActualSegment actualSegment;
 		

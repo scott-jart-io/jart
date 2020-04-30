@@ -37,18 +37,64 @@ import java.util.function.Function;
 
 import io.jart.async.AsyncPipe;
 
+/**
+ * Base interface for transmission contexts.
+ */
 public interface TxContext {
+	
+	/**
+	 * Base interface for packet buffers.
+	 */
 	public interface Buffer {}
-	// return a bytebuffer to use for a tx
+	
+	/**
+	 * Start a transmit.
+	 * Returns a Buffer for use().
+	 *
+	 * @param exec the Executor to run on
+	 * @return the completable future which completes with a Buffer ready for use().
+	 */
 	public CompletableFuture<Buffer> startTx(Executor exec);
-	// transform a bytebuffer to use for a tx using fun and write the result to dst
+	
+	/**
+	 * Start a transmit indirectly via a pipe.
+	 * As startTx(Executor exec) but delivers the Buffer to dst as translated by fun.
+	 *
+	 * @param <D> the generic type
+	 * @param <O> the generic type
+	 * @param dst the destination pipe
+	 * @param fun the function to translate the Buffer to whatever the destination pipe wants
+	 * @param exec the Executor to run on
+	 */
 	public<D, O extends D> void startTx(AsyncPipe<D> dst, Function<Buffer, O> fun, Executor exec);
-	// if a tx buffer is immediately available, return it -- otherwise null
+	
+	/**
+	 * Try to synchronously start a transmit.
+	 *
+	 * @return the buffer or null on failure
+	 */
 	public Buffer tryStartTx();
-	// start actually using 
+	
+	/**
+	 * Make a Buffer ready for use and return a ByteBuffer prepped for filling.
+	 *
+	 * @param buffer the buffer
+	 * @return the byte buffer
+	 */
 	public ByteBuffer use(Buffer buffer);
-	// send it
+	
+	/**
+	 * Mark a Buffer as successfully finished.
+	 *
+	 * @param buffer the buffer
+	 */
 	public void finish(Buffer buffer);
+	
+	/**
+	 * Mark a Buffer as aborted.
+	 *
+	 * @param buffer the buffer
+	 */
 	// abort it
 	public void abort(Buffer buffer);
 }

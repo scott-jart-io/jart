@@ -30,5 +30,8 @@
 
 package io.jart.net;
 
+/**
+ * Base class for an internet address and port.
+ */
 public abstract class InetAddrAndPort {
 }

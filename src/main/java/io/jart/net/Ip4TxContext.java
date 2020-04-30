@@ -37,6 +37,9 @@ import java.util.function.Function;
 
 import io.jart.async.AsyncPipe;
 
+/**
+ * IpTxContext for ipv4.
+ */
 public class Ip4TxContext implements IpTxContext {
 	private final DataLinkTxContext txCtx;
 	private final byte proto;
@@ -45,6 +48,14 @@ public class Ip4TxContext implements IpTxContext {
 	private ByteBuffer ipBuf;
 	private int ipBufPos;
 	
+	/**
+	 * Instantiates a new ip 4 tx context.
+	 *
+	 * @param dlCtx the dl ctx
+	 * @param proto the protocol
+	 * @param srcAddr the src addr
+	 * @param dstAddr the dst addr
+	 */
 	public Ip4TxContext(DataLinkTxContext dlCtx, byte proto, int srcAddr, int dstAddr) {
 		this.txCtx = dlCtx;
 		this.proto = proto;
@@ -52,22 +63,50 @@ public class Ip4TxContext implements IpTxContext {
 		this.dstAddr = dstAddr;
 	}
 	
+	/**
+	 * Start a transmit.
+	 * Returns a Buffer for use().
+	 *
+	 * @param exec the Executor to run on
+	 * @return the completable future which completes with a Buffer ready for use().
+	 */
 	@Override
 	public CompletableFuture<Buffer> startTx(Executor exec) {
 		return txCtx.startTx(exec);
 	}
 
+	/**
+	 * Start a transmit indirectly via a pipe.
+	 * As startTx(Executor exec) but delivers the Buffer to dst as translated by fun.
+	 *
+	 * @param <D> the generic type
+	 * @param <O> the generic type
+	 * @param dst the destination pipe
+	 * @param fun the function to translate the Buffer to whatever the destination pipe wants
+	 * @param exec the Executor to run on
+	 */
 	@Override
 	public<D, O extends D> void startTx(AsyncPipe<D> dst, Function<Buffer, O> fun, Executor exec) {
 		txCtx.startTx(dst, fun, exec);
 	}
 
+	/**
+	 * Try to synchronously start a transmit.
+	 *
+	 * @return the buffer or null on failure
+	 */
 	@Override
 	public Buffer tryStartTx() {
 		return txCtx.tryStartTx();
 	}
 
-	// we're stateful and can only use one buffer at a time
+	/**
+	 * Make a Buffer ready for use and return a ByteBuffer prepped for filling.
+	 * We're stateful and can only use one buffer at a time.
+	 *
+	 * @param buffer the buffer
+	 * @return the byte buffer
+	 */
 	@Override
 	public ByteBuffer use(Buffer buffer) {
 		ipBuf = txCtx.use(buffer);
@@ -86,6 +125,11 @@ public class Ip4TxContext implements IpTxContext {
 		return ipBuf;
 	}
 
+	/**
+	 * Finish.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void finish(Buffer buffer) {
 		ipBuf.putShort(ipBufPos + 2, (short)(ipBuf.position() - ipBufPos)); // total length
@@ -94,12 +138,23 @@ public class Ip4TxContext implements IpTxContext {
 		txCtx.finish(buffer);
 	}
 
+	/**
+	 * Abort.
+	 *
+	 * @param buffer the buffer
+	 */
 	@Override
 	public void abort(Buffer buffer) {
 		ipBuf = null;
 		txCtx.abort(buffer);
 	}
 	
+	/**
+	 * Calc pseudo header partial C sum.
+	 *
+	 * @param upperLayerPacketLength the upper layer packet length
+	 * @return the int
+	 */
 	@Override
 	public int calcPseudoHeaderPartialCSum(int upperLayerPacketLength) {
 		return Ip4Pkt.calcPseudoHeaderPartialCSum(srcAddr, dstAddr, proto, upperLayerPacketLength);

@@ -50,9 +50,15 @@ import io.jart.util.ByteBufferChunker;
 import io.jart.util.EventQueue;
 import io.jart.util.PausableExecutor;
 
+/**
+ * Extends a TcpLoop(Cubic) with simple async read and write.
+ */
 public abstract class TcpConnection extends TcpLoopCubic {
 	private static final Logger logger = Logger.getLogger(TcpConnection.class);
 
+	/**
+	 * Message to send to our pipe to update our state.
+	 */
 	private static class UpdateMsg {};
 	private static final UpdateMsg updateMsg = new UpdateMsg();
 
@@ -66,11 +72,23 @@ public abstract class TcpConnection extends TcpLoopCubic {
 	private boolean closing;
 	private CompletableFuture<Void> shutdown = new CompletableFuture<Void>();
 	
-	// exec is TcpLoop executor
-	// connExec is executor to run non-realtime connection tasks
+	/**
+	 * Instantiates a new tcp connection.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param writeBufSize the write buffer size
+	 * @param eventQueue the event queue for tcp work
+	 * @param msgRelay the msg relay for safe unsynchronized message passing
+	 * @param startSeqNum the start sequence num for tcp
+	 * @param exec the Executor for tcp work
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public TcpConnection(TcpContext tcpContext, int mss, int writeBufSize, EventQueue eventQueue, MsgRelay msgRelay, int startSeqNum, Executor exec, Executor connExec) {
 		super(tcpContext, mss, eventQueue, startSeqNum, exec);
+		// "raw" reader -- doesn't update window size
 		abbr = new AsyncByteBufferPipe(connExec);
+		// reader -- updates tcp window size as data is consumed
 		this.reader = new AsyncByteBufferReader() {
 			@Override
 			public CompletableFuture<Void> read(BiPredicate<ByteBuffer, Boolean> consumer) {
@@ -89,6 +107,7 @@ public abstract class TcpConnection extends TcpLoopCubic {
 				});
 			}
 		};
+		// writer -- adds submitted data to the TcpOutgoing's send queue
 		this.writerBuffer = new AsyncByteWriterBuffer(writeBufSize) {
 			@Override
 			protected void submit(ByteBuffer buf) {
@@ -104,16 +123,35 @@ public abstract class TcpConnection extends TcpLoopCubic {
 		this.msgRelay = msgRelay;
 	}
 
+	/**
+	 * Instantiates a new tcp connection with sa default write buffer size of 20MB.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param eventQueue the event queue for tcp work
+	 * @param msgRelay the msg relay for safe unsynchronized message passing
+	 * @param startSeqNum the start sequence num for tcp
+	 * @param exec the Executor for tcp work
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public TcpConnection(TcpContext tcpContext, int mss, EventQueue eventQueue, MsgRelay msgRelay, int startSeqNum, Executor exec, Executor connExec) {
 		this(tcpContext, mss, 20*1024*1024, eventQueue, msgRelay, startSeqNum, exec, connExec);
 	}
 	
+	/**
+	 * Basic setup at time of connection.
+	 */
 	@Override
 	protected void connected() {
 		kick();
 		privateRun();
 	}
 	
+	/**
+	 * Internal run logic -- runs connectionRun and close()s after connectionRun completes.
+	 *
+	 * @return the completable future
+	 */
 	private CompletableFuture<Void> privateRun() {
 		try {
 			Async.await(connectionRun());
@@ -124,12 +162,33 @@ public abstract class TcpConnection extends TcpLoopCubic {
 		return close();
 	}
 
+	/**
+	 * Executor associated with our raw reader.
+	 *
+	 * @return the executor
+	 */
 	protected Executor executor() { return abbr.executor(); }
+	
+	/**
+	 * Implement me -- connection handling code should run here.
+	 *
+	 * @return the completable future
+	 */
 	protected abstract CompletableFuture<Void> connectionRun();
+	
+	/**
+	 * Kick out watchdog timer.
+	 */
 	protected void kick() {
 		eventQueue.update(exitMsg, System.nanoTime()/1000 + 15*1000*1000);		
 	}
 
+	/**
+	 * Handle msg.
+	 *
+	 * @param msg the msg
+	 * @return true, if successful
+	 */
 	@Override
 	protected boolean handleMsg(Object msg) {
 		if(msg == updateMsg) {
@@ -139,34 +198,56 @@ public abstract class TcpConnection extends TcpLoopCubic {
 		return false;
 	}
 	
-	// thread-safe update -- can be called from any thread in any state
-	// call after send() or winSize update from outside of connectionRun
+	/**
+	 * Thread-safe update -- can be called from any thread in any state to cause the connection to update itself.
+	 * Call after send() or winSize update from outside of connectionRun.
+	 */
 	protected void update() {
 		if(!updatePending.getAndSet(true))
 			msgRelay.relay(tcpContext.getPipe(), updateMsg);
 	}
 
+	/**
+	 * Shutdown connection.
+	 *
+	 * @return the completable future which completes when shutdown is complete
+	 */
 	protected CompletableFuture<Void> shutdown() {
 		shuttingDown = true;
 		return shutdown;
 	}
 	
+	/**
+	 * Close a connection.
+	 *
+	 * @return the completable future which completes when close is complete
+	 */
 	protected CompletableFuture<Void> close() {
 		return shutdown().thenRun(()->{
 			closing = true;
 		});
 	}
 
+	/**
+	 * Implement TcpLoop receive.
+	 *
+	 * @param src the src
+	 * @param acked the acked
+	 * @param fin the fin
+	 */
 	@Override
 	protected void recv(ByteBuffer src, int acked, boolean fin) {
 		PausableExecutor pexec = abbr.executor();
 		
-		pexec.pause();
-		writerBuffer.written(acked);
+		pexec.pause(); // pause the reader's executor so blocked async read can execute synchronously
+		writerBuffer.written(acked); // tell writerBuffer we've fully written acked number of bytes
 		if(!finSeen) {
+			// if we've not already seen a fin already, pass on received bytes to the reader
 			abbr.write(src); // will resume pexec
 			if(fin) {
+				// if this packet represents a fin, remember it
 				finSeen = true;
+				// and close the reader
 				abbr.write(null);
 			}
 		}
@@ -175,25 +256,42 @@ public abstract class TcpConnection extends TcpLoopCubic {
 		if(shuttingDown) {
 			TcpOutgoing tcpOut = tcpOut();
 			
-			if(!tcpOut.finOut()) {
-				if(tcpOut.isEmpty())
+			if(!tcpOut.finOut()) { // shutting down but haven't sent fin yet as TcpOutgoing q wasn't emoty
+				if(tcpOut.isEmpty()) // empty now, so queue up a fin
 					tcpOut.queueFin();
 			}
-			else if(!shutdown.isDone() && tcpOut.finAcked())
+			else if(!shutdown.isDone() && tcpOut.finAcked()) // if we haven't already marked shutdown complete and we got a fin, mark it now!
 				shutdown.complete(null);
 		}
-		if(!closing)
+		if(!closing) // if we're not actively closing then kick the watchdog when we receive a packet
 			kick();
 	}
 
+	/**
+	 * Gets the reader.
+	 * Updates tcp window size on read to reflect that we've consumed any read data.
+	 *
+	 * @return the reader
+	 */
 	protected AsyncByteBufferReader getReader() {
 		return reader;
 	}
 
+	/**
+	 * Gets the "raw" reader.
+	 * Tcp window size is NOT updated on reads. If using the raw reader, don't forget to eventually update the tcp window size.
+	 *
+	 * @return the raw reader
+	 */
 	protected AsyncByteBufferReader getRawReader() {
 		return abbr;
 	}
 
+	/**
+	 * Gets the writer.
+	 *
+	 * @return the writer
+	 */
 	protected AsyncByteWriter getWriter() {
 		return writerBuffer;
 	}

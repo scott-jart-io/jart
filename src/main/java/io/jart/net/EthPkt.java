@@ -36,6 +36,9 @@ import java.nio.ByteBuffer;
 
 import org.apache.log4j.Logger;
 
+/**
+ * Ethernet packet helper class.
+ */
 public class EthPkt {
 	private static final Logger logger = Logger.getLogger(EthPkt.class);
 
@@ -44,7 +47,15 @@ public class EthPkt {
 	public static final int HEADER_SIZE = 14;
 	public static final short ETHERTYPE_IP4 = 0x0800;
 	
-	// basic validity check -- does NOT verify csum
+	private EthPkt() {} // hide constructor
+	
+	/**
+	 * Simple validity check.
+	 * Checks only that the packet is big enough to hold an Ethernet header.
+	 *
+	 * @param b the ByteBuffer holding the packet
+	 * @return true, if successful
+	 */
 	public static boolean valid(ByteBuffer b) {
 		int size = b.limit() - b.position();
 		
@@ -55,63 +66,153 @@ public class EthPkt {
 		return true;
 	}
 	
+	/**
+	 * Gets the mac address from a packet at a given position.
+	 *
+	 * @param b the ByteBuffer holding the packet
+	 * @param pos the position of the header
+	 * @return the mac address
+	 */
 	public static long getMac(ByteBuffer b, int pos) {
 		return ((0xffff & (long)b.getShort(pos)) << 32) |
 				((0xffff & (long)b.getShort(2 + pos)) << 16) |
 				(0xffff & (long)b.getShort(4 + pos));		
 	}
 	
+	/**
+	 * Gets the mac address from a packet at the buffer's current position.
+	 * Advances the ByteBuffer's position
+	 *
+	 * @param b the ByteBuffer holding the packet
+	 * @return the mac address
+	 */
 	public static long getMac(ByteBuffer b) {
 		return ((0xffff & (long)b.getShort()) << 32) |
 				((0xffff & (long)b.getShort()) << 16) |
 				(0xffff & (long)b.getShort());				
 	}
 	
+	/**
+	 * Put mac.
+	 *
+	 * @param b the b
+	 * @param pos the pos
+	 * @param m the m
+	 */
 	public static void putMac(ByteBuffer b, int pos, long m) {
 		b.putShort(pos, (short) (m >> 32));
 		b.putShort(2 + pos, (short) (m >> 16));
 		b.putShort(4 + pos, (short) m );
 	}
 	
+	/**
+	 * Put a mac address at the current position.
+	 *
+	 * @param b the ByteBuffer
+	 * @param m the mac address
+	 */
 	public static void putMac(ByteBuffer b, long m) {
 		b.putShort((short) (m >> 32));
 		b.putShort((short) (m >> 16));
 		b.putShort((short) m );
 	}
 	
+	/**
+	 * Gets the destination mac address from a packet.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @return the dst mac
+	 */
 	public static long getDstMac(ByteBuffer b) {
 		return getMac(b, b.position());
 	}
 
+	/**
+	 * Sets the destination mac address from a packet.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @param m the m
+	 */
 	public static void setDstMac(ByteBuffer b, long m) {
 		putMac(b, b.position(), m);
 	}
 	
+	/**
+	 * Gets the source mac address from a packet.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @return the src mac
+	 */
 	public static long getSrcMac(ByteBuffer b) {
 		return getMac(b, b.position() + 6);
 	}
 	
+	/**
+	 * Sets the source mac address from a packet.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @param m the m
+	 */
 	public static void setSrcMac(ByteBuffer b, long m) {
 		putMac(b, b.position() + 6, m);
 	}
 	
+	/**
+	 * Gets the ether type.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @return the ether type
+	 */
 	public static short getEtherType(ByteBuffer b) {
 		return b.getShort(12 + b.position());
 	}
 	
+	/**
+	 * Sets the ether type.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @param t the t
+	 */
 	public static void setEtherType(ByteBuffer b, short t) {
 		b.putShort(12 + b.position(), t);
 	}
 	
+	/**
+	 * Gets the position in the ByteBuffer where the payload starts.
+	 * ByteBuffer's position should be at the beginning of the packet.
+	 *
+	 * @param b the ByteBuffer
+	 * @return the int
+	 */
 	public static int payloadPos(ByteBuffer b) {
 		return b.position() + HEADER_SIZE;
 	}
 	
+	/**
+	 * Write a packet in pcap format to the OutputStream.
+	 *
+	 * @param os the destination
+	 * @param b the ByteBuffer
+	 * @param len the length of the packet
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	public static void writePcap(OutputStream os, ByteBuffer b, int len) throws IOException {
 		writePcapHeader(os);
 		writePcapPacket(os, b, len);
 	}
 	
+	/**
+	 * Write a pcap header to an OutputStream.
+	 *
+	 * @param os the destinatoin
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	public static void writePcapHeader(OutputStream os) throws IOException {
 		DataOutputStream dos = new DataOutputStream(os);
 		
@@ -124,6 +225,14 @@ public class EthPkt {
 		dos.writeInt(1); // network
 	}
 	
+	/**
+	 * Write a pcap packet.
+	 *
+	 * @param os the destination
+	 * @param b the ByteBuffer -- position should be at start of packet
+	 * @param len the length of the packet
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	public static void writePcapPacket(OutputStream os, ByteBuffer b, int len) throws IOException {
 		DataOutputStream dos = new DataOutputStream(os);
 		int inclLen = Math.min(len, SNAPLEN);

@@ -34,9 +34,37 @@ import java.nio.ByteBuffer;
 
 import io.jart.async.AsyncPipe;
 
+/**
+ * A TcpContext.
+ */
 public interface TcpContext {
+	
+	/**
+	 * Gets the pipe used for receiving tcp-related messages.
+	 *
+	 * @return the pipe
+	 */
 	public AsyncPipe<Object> getPipe();
+	
+	/**
+	 * Gets the transmit context.
+	 *
+	 * @return the tx
+	 */
 	public TcpTxContext getTx();
-	public ByteBuffer rx(Object obj); // returns null if obj doesn't represent an incoming packet
+	
+	/**
+	 * Converts applicable received messages to ByteBuffers representing a tcp packet.
+	 *
+	 * @param obj the recieved obj that MAY represent a received packet
+	 * @return the byte buffer or null if obj doesn't represent a received packet
+	 */
+	public ByteBuffer rx(Object obj);
+	
+	/**
+	 * Call when finished with the non-null ByteBuffer returned by rx(Object obj).
+	 *
+	 * @param obj the obj
+	 */
 	public void finishRx(Object obj);
 }

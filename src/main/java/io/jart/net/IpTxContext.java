@@ -30,7 +30,16 @@
 
 package io.jart.net;
 
-// encapsulates a transmit connection (immutable src/dst) at the Ip layer
+/**
+ * Encapsulates a transmit connection (immutable src/dst) at the Ip layer.
+ */
 public interface IpTxContext extends TxContext {
+	
+	/**
+	 * Calc pseudo header partial C sum.
+	 *
+	 * @param upperLayerPacketLength the upper layer packet length
+	 * @return the int
+	 */
 	public int calcPseudoHeaderPartialCSum(int upperLayerPacketLength);
 }

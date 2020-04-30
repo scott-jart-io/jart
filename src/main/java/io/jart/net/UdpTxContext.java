@@ -30,6 +30,9 @@
 
 package io.jart.net;
 
+/**
+ * Base context for transmitting Udp packets.
+ */
 public interface UdpTxContext extends TxContext {
 
 }

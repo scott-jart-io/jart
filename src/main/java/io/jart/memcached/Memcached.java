@@ -53,18 +53,39 @@ import io.jart.async.AsyncRunnable;
 import io.jart.util.ByteArrayChunker;
 import io.jart.util.ByteChunker;
 
-// TODO prototype-y
+/**
+ * The Class Memcached.
+ * Toy memcached implementations. Just enough functionality to work with memtier benchmark.
+ */
 public class Memcached {
+	
+	/**
+	 * Memcache Key.
+	 * Fixed size sha1 representation of key;
+	 */
 	public static class Key {
 		public long keyHash1, keyHash2;
 
+		/**
+		 * Instantiates a new key.
+		 */
 		public Key() {
 		}
 
+		/**
+		 * Instantiates a new key.
+		 *
+		 * @param hash the hash
+		 */
 		public Key(byte[] hash) {
 			setValue(hash);
 		}
 
+		/**
+		 * Sets the value.
+		 *
+		 * @param hash the new value
+		 */
 		public void setValue(byte[] hash) {
 			keyHash1 = (int) hash[0] | (int) hash[1] << 8 | (int) hash[2] << 16 | (int) hash[3] << 24
 					| (long) hash[4] << 32 | (long) hash[5] << 40 | (long) hash[6] << 48 | (long) hash[7] << 56;
@@ -72,11 +93,22 @@ public class Memcached {
 					| (long) hash[12] << 32 | (long) hash[13] << 40 | (long) hash[14] << 48 | (long) hash[15] << 56;
 		}
 
+		/**
+		 * Hash code.
+		 *
+		 * @return the int
+		 */
 		@Override
 		public int hashCode() {
 			return (int)keyHash1;
 		}
 
+		/**
+		 * Equals.
+		 *
+		 * @param obj the obj
+		 * @return true, if successful
+		 */
 		@Override
 		public boolean equals(Object obj) {
 			if (this == obj)
@@ -94,11 +126,21 @@ public class Memcached {
 		}
 	}
 
+	/**
+	 * Memcache Value.
+	 */
 	public static class Value {
 		public final byte[] efkvp; // expiration(4), flags(4), key(keyLen), value(...)
 		public final int keyLen;
 		public final long cas;
 
+		/**
+		 * Instantiates a new value.
+		 *
+		 * @param efkvp the efkvp
+		 * @param keyLen the key len
+		 * @param cas the cas
+		 */
 		public Value(byte[] efkvp, int keyLen, long cas) {
 			this.efkvp = efkvp;
 			this.keyLen = keyLen;
@@ -106,87 +148,190 @@ public class Memcached {
 		}
 	}
 
+	/**
+	 * A memcache record header.
+	 */
 	public static class Header {
 		public final static int SIZE = 24;
 
 		public final ByteBuffer buf;
 
+		/**
+		 * Instantiates a new header.
+		 */
 		public Header() {
 			buf = ByteBuffer.allocate(SIZE).order(ByteOrder.BIG_ENDIAN);
 		}
 
+		/**
+		 * Gets the magic opcode.
+		 *
+		 * @return the magic opcode
+		 */
 		public short getMagicOpcode() {
 			return buf.getShort(0);
 		}
 
+		/**
+		 * Sets the magic opcode.
+		 *
+		 * @param mo the new magic opcode
+		 */
 		public void setMagicOpcode(short mo) {
 			buf.putShort(0, mo);
 		}
 
+		/**
+		 * Gets the key length.
+		 *
+		 * @return the key length
+		 */
 		public int getKeyLength() {
 			return 0xffff & buf.getShort(2);
 		}
 
+		/**
+		 * Sets the key length.
+		 *
+		 * @param keyLen the new key length
+		 */
 		public void setKeyLength(int keyLen) {
 			buf.putShort(2, (short) keyLen);
 		}
 
+		/**
+		 * Gets the extras length.
+		 *
+		 * @return the extras length
+		 */
 		public short getExtrasLength() {
 			return (short) (0xff & buf.get(4));
 		}
 
+		/**
+		 * Sets the extras length.
+		 *
+		 * @param len the new extras length
+		 */
 		public void setExtrasLength(short len) {
 			buf.put(4, (byte) len);
 		}
 
+		/**
+		 * Gets the data type.
+		 *
+		 * @return the data type
+		 */
 		public byte getDataType() {
 			return buf.get(5);
 		}
 
+		/**
+		 * Sets the data type.
+		 *
+		 * @param dt the new data type
+		 */
 		public void setDataType(byte dt) {
 			buf.put(5, dt);
 		}
 
+		/**
+		 * Gets the status.
+		 *
+		 * @return the status
+		 */
 		public short getStatus() {
 			return buf.getShort(6);
 		}
 
+		/**
+		 * Sets the status.
+		 *
+		 * @param status the new status
+		 */
 		public void setStatus(short status) {
 			buf.putShort(6, status);
 		}
 
+		/**
+		 * Gets the v bucket id.
+		 *
+		 * @return the v bucket id
+		 */
 		public short getVBucketId() {
 			return buf.getShort(6);
 		}
 
+		/**
+		 * Sets the v bucket id.
+		 *
+		 * @param vbid the new v bucket id
+		 */
 		public void setVBucketId(short vbid) {
 			buf.putShort(6, vbid);
 		}
 
+		/**
+		 * Gets the body length.
+		 *
+		 * @return the body length
+		 */
 		public long getBodyLength() {
 			return 0xffffffffL & buf.getInt(8);
 		}
 
+		/**
+		 * Sets the body length.
+		 *
+		 * @param len the new body length
+		 */
 		public void setBodyLength(long len) {
 			buf.putInt(8, (int) len);
 		}
 
+		/**
+		 * Gets the opaque.
+		 *
+		 * @return the opaque
+		 */
 		public int getOpaque() {
 			return buf.getInt(12);
 		}
 
+		/**
+		 * Sets the opaque.
+		 *
+		 * @param opaque the new opaque
+		 */
 		public void setOpaque(int opaque) {
 			buf.putInt(12, opaque);
 		}
 
+		/**
+		 * Gets the cas.
+		 *
+		 * @return the cas
+		 */
 		public long getCas() {
 			return buf.getLong(16);
 		}
 
+		/**
+		 * Sets the cas.
+		 *
+		 * @param cas the new cas
+		 */
 		public void setCas(long cas) {
 			buf.putLong(16, cas);
 		}
 
+		/**
+		 * Gets the.
+		 *
+		 * @param dst the dst
+		 * @param offs the offs
+		 * @return the byte[]
+		 */
 		public byte[] get(byte[] dst, int offs) {
 			buf.get(dst, offs, SIZE);
 			buf.clear();
@@ -194,7 +339,15 @@ public class Memcached {
 		}
 	}
 
+	/**
+	 * State machine based implementation of a memcache.
+	 * Complicated and fragile but fast.
+	 */
 	public static class StateMachineSession {
+		
+		/**
+		 * The Interface State.
+		 */
 		private static interface State extends Function<ByteBuffer, State> {}
 		
 		private final Map<Key, Value> map;
@@ -203,17 +356,33 @@ public class Memcached {
 		private final Header header = new Header();
 		private final Key gkey = new Key();
 		private final byte[] mdBuf;
+		
+		/**
+		 * The Class ReadState.
+		 */
 		// read bytes and go to next state
 		private class ReadState implements State {
 			private final byte[] dst;
 			private int read;
 			private final State nextState;
 			
+			/**
+			 * Instantiates a new read state.
+			 *
+			 * @param dst the dst
+			 * @param nextState the next state
+			 */
 			public ReadState(byte[] dst, State nextState) {
 				this.dst = dst;
 				this.nextState = nextState;
 			}
 
+			/**
+			 * Apply.
+			 *
+			 * @param buf the buf
+			 * @return the state
+			 */
 			@Override
 			public State apply(ByteBuffer buf) {
 				int size = Math.min(buf.remaining(), dst.length - read);
@@ -223,16 +392,31 @@ public class Memcached {
 				return (read == dst.length) ? nextState : this;
 			}
 		};
+		
+		/**
+		 * The Class HashBodyState.
+		 */
 		// hash incoming body and go to next state
 		private class HashBodyState implements State {
 			private int remaining;
 			private final State nextState;
 			
+			/**
+			 * Instantiates a new hash body state.
+			 *
+			 * @param nextState the next state
+			 */
 			public HashBodyState(State nextState) {
 				remaining = (int)header.getBodyLength();
 				this.nextState = nextState;
 			}
 
+			/**
+			 * Apply.
+			 *
+			 * @param buf the buf
+			 * @return the state
+			 */
 			@Override
 			public State apply(ByteBuffer buf) {
 				int limit = buf.limit();
@@ -254,6 +438,7 @@ public class Memcached {
 				return nextState;
 			}
 		}
+		
 		// header read state
 		private final State mainState = new State() {
 			@Override
@@ -398,6 +583,9 @@ public class Memcached {
 		};
 		private State state = mainState;
 		
+		/**
+		 * Send header.
+		 */
 		private void sendHeader() {
 			byte[] headerBytes = Arrays.copyOfRange(header.buf.array(), header.buf.arrayOffset(), Header.SIZE);
 
@@ -405,6 +593,13 @@ public class Memcached {
 			sendQ.offer(new ByteArrayChunker(headerBytes, 0, headerBytes.length));
 		}
 		
+		/**
+		 * Instantiates a new state machine session.
+		 *
+		 * @param map the map
+		 * @param sendQ the send Q
+		 * @throws NoSuchAlgorithmException the no such algorithm exception
+		 */
 		public StateMachineSession(Map<Key, Value> map, Queue<ByteChunker> sendQ) throws NoSuchAlgorithmException {
 			this.map = map;
 			this.sendQ = sendQ;
@@ -412,6 +607,12 @@ public class Memcached {
 			this.mdBuf= new byte[md.getDigestLength()];
 		}
 		
+		/**
+		 * Recv.
+		 *
+		 * @param buf the buf
+		 * @return true, if successful
+		 */
 		public boolean recv(ByteBuffer buf) {
 			while(state != null) {
 				State curState = state;
@@ -425,12 +626,25 @@ public class Memcached {
 		}
 	}
 	
+	/**
+	 * Asynchronous implementation of a memcache.
+	 * Straightforward but not quite as fast as the state machine version.
+	 */
 	public static class AsyncSession implements AsyncRunnable {
 		private final Map<Key, Value> map;
 		private final AsyncByteBufferReader abr;
 		private final AsyncByteWriter abw;
 		private final Executor exec;
 
+		/**
+		 * Instantiates a new async session.
+		 *
+		 * @param map the map
+		 * @param abr the abr
+		 * @param abw the abw
+		 * @param exec the exec
+		 * @throws NoSuchAlgorithmException the no such algorithm exception
+		 */
 		public AsyncSession(Map<Key, Value> map, AsyncByteBufferReader abr, AsyncByteWriter abw, Executor exec) throws NoSuchAlgorithmException {
 			this.map = map;
 			this.abr = abr;
@@ -438,6 +652,11 @@ public class Memcached {
 			this.exec = exec;
 		}
 
+		/**
+		 * Run.
+		 *
+		 * @return the completable future
+		 */
 		public CompletableFuture<Void> run() {
 			try {
 				Header header = new Header();
@@ -561,6 +780,14 @@ public class Memcached {
 			}
 		}
 		
+		/**
+		 * Write copy.
+		 *
+		 * @param buf the buf
+		 * @param offs the offs
+		 * @param len the len
+		 * @return the completable future
+		 */
 		protected CompletableFuture<Void> writeCopy(byte[] buf, int offs, int len) {
 			return abw.write(Arrays.copyOfRange(buf, offs, offs + len));
 		}

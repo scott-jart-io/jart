@@ -49,6 +49,9 @@ import io.jart.async.AsyncRunnable;
 import io.jart.util.EventQueue;
 import io.jart.util.ThreadAffinityExecutor;
 
+/**
+ * Implement the Tcp loop.
+ */
 public abstract class TcpLoop implements AsyncRunnable {
 	private static final Logger logger = Logger.getLogger(TcpLoop.class);
 	private static final CompletableFuture<Void> cfVoid = CompletableFuture.completedFuture(null);
@@ -65,13 +68,27 @@ public abstract class TcpLoop implements AsyncRunnable {
 	protected final AtomicInteger winSize = new AtomicInteger(8*1024*1024);
 	private TcpOutgoing tcpOut;
 	private short invalidCb, requiredCb;
-	private boolean explicitAck;
+	private boolean explicitAck; // we want to explicitly send an ack when appropriate
 	protected byte winScale, peerWinScale;
 	protected long ackNum;
 	private Queue<TcpOutgoing.Segment> txQ = new LinkedList<TcpOutgoing.Segment>();
 
+	/**
+	 * TcpOutgoing associated with this loop.
+	 *
+	 * @return the tcp outgoing
+	 */
 	protected TcpOutgoing tcpOut() { return tcpOut; }
 
+	/**
+	 * Instantiates a new tcp loop.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param eventQueue the event queue for use with tcp work
+	 * @param startSeqNum the start sequence number for tcp
+	 * @param exec the Executor to run on
+	 */
 	public TcpLoop(TcpContext tcpContext, int mss, EventQueue eventQueue, int startSeqNum, Executor exec) {
 		this.tcpContext = tcpContext;
 		this.mss = mss;
@@ -81,13 +98,21 @@ public abstract class TcpLoop implements AsyncRunnable {
 		this.exitMsg = new AsyncEventQueue.Event(tcpContext.getPipe());
 	}
 
-	// override me!
-
-	// called to init (receive window size)
+	/**
+	 * Called early on to allow subclasses to initialize.
+	 * Sublcasses might want to adjust receive window size here.
+	 */
 	protected void init() {}
-	// called when connection has started
+	
+	/**
+	 * Called when the connection is established.
+	 */
 	protected void connected() {}
-	// called when cleaning up
+	
+	/**
+	 * Called when terminating.
+	 * Override me, but don't forget to call super.
+	 */
 	protected void term() {
 		if(tcpOut != null)
 			tcpOut.dispose();
@@ -96,30 +121,63 @@ public abstract class TcpLoop implements AsyncRunnable {
 		winSize.set(-1);
 	}
 	
+	/**
+	 * Do any disposal needed on objects still in the pipe at termination time.
+	 * Override me, but don't forget to call sup.
+	 *
+	 * @param obj the obj
+	 */
 	public void disposeMsg(Object obj) {
 		if(obj instanceof TxContext.Buffer)
 			tcpContext.getTx().abort((TxContext.Buffer)obj);
 	}
 	
-	// must be overridden -- handle recv of data and/or acknowledgement of sent data and/or
-	// fin recv or acknowledgement
-	// src buffer contains received data
-	// acked indicates number of sent bytes acked by receiver
-	// fin indicates whether we are receiving a fin from sender
+	/**
+	 * Implement me -- handle recv of data and/or acknowledgement of sent data and/or
+	 * fin recv or acknowledgement.
+	 *
+	 * @param src the received data
+	 * @param acked the number of sent bytes acked by this packet
+	 * @param fin true in this packet has the fin flag set
+	 */
 	protected abstract void recv(ByteBuffer src, int acked, boolean fin);
-	// called to handle unrecognized messages
+	
+	/**
+	 * Handle a messsage received on the pipe that is not handled by the TcpLoop.
+	 *
+	 * @param obj the obj
+	 * @return true, if handled, false otherwise
+	 */
 	protected boolean handleMsg(Object obj) { return false; }
 
-	// create outgoing
+	/**
+	 * Creates the TcpOutgoing for sending data.
+	 * Override me to customize TcpOutgoing instantiation.
+	 *
+	 * @param pipe the pipe for tcp messages
+	 * @param winSize the starting window size
+	 * @param seqNum the tcp sequence num
+	 * @return the tcp outgoing
+	 */
 	protected TcpOutgoing createTcpOut(AsyncPipe<Object> pipe, int winSize, long seqNum) {
 		return new TcpOutgoing(eventQueue, pipe, mss, winSize, seqNum);
 	}
-	// finish dealing w/ an rx-ed packet
+	
+	/**
+	 * Finish dealing w/ an rx-ed packet.
+	 *
+	 * @param msg the msg
+	 */
 	protected void finishRx(Object msg) {
 		tcpContext.finishRx(msg);
 	}
 
-	// handle syn or syn/ack -- parse options
+	/**
+	 * Handle a syn or syn/ack packet.
+	 * Parse options.
+	 *
+	 * @param pkt the pkt
+	 */
 	protected void handleSyn(ByteBuffer pkt) {
 		int pos = pkt.position();
 		int limit = pkt.limit();
@@ -158,10 +216,21 @@ public abstract class TcpLoop implements AsyncRunnable {
 		pkt.position(pos);
 	}
 
+	/**
+	 * Get scaled window size.
+	 *
+	 * @return the int
+	 */
 	private int scaledWinSize() {
 		return Math.min(65535, winSize.get() >> winScale);
 	}
 
+	/**
+	 * Request a tx buffer.
+	 *
+	 * @param tx the tx context
+	 * @param pipe the pipe to deliver the Buffer to
+	 */
 	private void requestTxBuffer(TcpTxContext tx, AsyncPipe<Object> pipe) {
 		tx.startTx(pipe, (TxContext.Buffer buf)->{
 			if(winSize.get() < 0) { // abort if we're known termed
@@ -172,11 +241,24 @@ public abstract class TcpLoop implements AsyncRunnable {
 		}, exec);
 	}
 
+	/**
+	 * Request several tx buffers.
+	 *
+	 * @param tx the tx context
+	 * @param pipe the pipe to deliver the Buffers to
+	 * @param n the number of buffers to request
+	 */
 	private void requestTxBuffer(TcpTxContext tx, AsyncPipe<Object> pipe, int n) {
 		while(n-- > 0)
 			requestTxBuffer(tx, pipe);
 	}
 	
+	/**
+	 * Output some packets.
+	 *
+	 * @param tx the tx
+	 * @param pipe the pipe
+	 */
 	private void output(TcpTxContext tx, AsyncPipe<Object> pipe) {
 		int n;
 		
@@ -190,6 +272,11 @@ public abstract class TcpLoop implements AsyncRunnable {
 		requestTxBuffer(tx, pipe, n);
 	}
 
+	/**
+	 * Run to loop.
+	 *
+	 * @return the completable future completed on indicating connection close (or timeout)
+	 */
 	@Override
 	public CompletableFuture<Void> run() {
 		// handshake

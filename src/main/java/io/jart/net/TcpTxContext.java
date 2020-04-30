@@ -30,19 +30,92 @@
 
 package io.jart.net;
 
-// encapsulates a transmit connection (immutable src/dst) at the Tcp layer
+/**
+ * Encapsulates a transmit connection (immutable src/dst) at the Tcp layer.
+ */
 public interface TcpTxContext extends TxContext {
+	
+	/**
+	 * Indicate that a Buffer is finished and ready for send.
+	 *
+	 * @param controlBits the Tcp control bits to write to the buffer
+	 * @param buffer the buffer to tx
+	 */
 	public void finish(short controlBits, Buffer buffer);
 
+	/**
+	 * Gets the seq num of the current packet.
+	 *
+	 * @return the seq num
+	 */
 	public long getSeqNum();
+	
+	/**
+	 * Sets the seq num of the current packet.
+	 *
+	 * @param seqNum the new seq num
+	 */
 	public void setSeqNum(long seqNum);
+	
+	/**
+	 * Gets the ack num of the current packet.
+	 *
+	 * @return the ack num
+	 */
 	public long getAckNum();
+	
+	/**
+	 * Sets the ack num of the current packet.
+	 *
+	 * @param ackNum the new ack num
+	 */
 	public void setAckNum(long ackNum);
+	
+	/**
+	 * Gets the control bits of the current packet.
+	 *
+	 * @return the control bits
+	 */
 	public short getControlBits();
+	
+	/**
+	 * Sets the control bits of the current packet.
+	 *
+	 * @param controlBits the new control bits
+	 */
 	public void setControlBits(short controlBits);
+	
+	/**
+	 * Gets the win size of the current packet.
+	 *
+	 * @return the win size
+	 */
 	public int getWinSize();
+	
+	/**
+	 * Sets the win size of the current packet.
+	 *
+	 * @param winSize the new win size
+	 */
 	public void setWinSize(int winSize);
+	
+	/**
+	 * Finish options of the current packet.
+	 */
 	public void finishOptions();
+	
+	/**
+	 * Payload size of the current packet.
+	 *
+	 * @return the short
+	 */
 	public short payloadSize();
+	
+	/**
+	 * Calc pseudo header partial checksum of the current packet.
+	 *
+	 * @param tcpPacketLength the tcp packet length
+	 * @return the int
+	 */
 	public int calcPseudoHeaderPartialCSum(int tcpPacketLength);
 }
