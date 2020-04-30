@@ -35,9 +35,10 @@ import java.util.concurrent.ForkJoinPool;
 
 /**
  * Executor that delegates execution to the most recent executor thread (when currentThread() implements Executor, like WorkerThread).
+ * Very simple but when used with HelpingWorkerThreads tied to individual cpus (cpu affinity), does a great job of load balancing across cpus.
  */
 public class ThreadAffinityExecutor implements Executor {
-	private Executor exec; // current Executor to delegat to
+	private Executor exec; // current Executor to delegate to
 	
 	/**
 	 * Instantiates a new thread affinity executor.
