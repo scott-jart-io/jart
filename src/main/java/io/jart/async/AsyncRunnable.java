@@ -34,8 +34,23 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 
+/**
+ * Asynchronous runnable interface.
+ */
 public interface AsyncRunnable {
+	
+	/**
+	 * Run asynchronously.
+	 *
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> run();
+	
+	/**
+	 * Convert to a ForkJoinTask for interop w/ ForkJoinPools.
+	 *
+	 * @return the fork join task
+	 */
 	@SuppressWarnings("serial")
 	public default ForkJoinTask<Void> asForkJoinTask() {
 		return new ForkJoinTask<Void>() {

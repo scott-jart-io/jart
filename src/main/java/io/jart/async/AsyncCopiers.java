@@ -40,9 +40,26 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.ea.async.Async;
 
+/**
+ * Helper class to coping data between supplying and consuming objects.
+ */
 public class AsyncCopiers {
+	
+	/**
+	 * Hide constructor.
+	 */
 	private AsyncCopiers() {}
 	
+	/**
+	 * Synchronously copy as many bytes from src to dst as possible.
+	 *
+	 * @param dst the dst
+	 * @param chunk inital chunk to try to write
+	 * @param src the src
+	 * @param skip skip skip[0] bytes (i.e., read them but don't write them) -- updated on return
+	 * @param len len[0] is total bytes to attempt to write -- updated on return
+	 * @return the next chunk to write or null if wrote all len[0] bytes (len[0] will be 0 on return)
+	 */
 	private static byte[] copyLoop(AsyncByteWriter dst, byte[] chunk, AsyncByteArrayReader src, long[] skip, long[] len) {
 		for(;;) {
 			if(Math.min(chunk.length, len[0]) <= 0)
@@ -63,7 +80,16 @@ public class AsyncCopiers {
 		}
 	}
 	
-	// copy up to len bytes from src to dst, skipping skip bytes from src
+	/**
+	 * Copy no more than len bytes from src to dst, skipping (discarding from src) skip bytes.
+	 *
+	 * @param dst the destination
+	 * @param src the source
+	 * @param skip the number of bytes to skip (read and discard from src)
+	 * @param len the maximum number of bytes to copy
+	 * @param exec the Executor to run on
+	 * @return the completable future indicating the total number of bytes copied
+	 */
 	public static CompletableFuture<Long> copy(AsyncByteWriter dst, AsyncByteArrayReader src, long skip, long len, Executor exec) {
 		long[] skipLeft = new long[] { skip };
 		long[] left = new long[] { len };
@@ -85,14 +111,35 @@ public class AsyncCopiers {
 		}, exec).thenApply((Void dummy)->len - left[0]);
 	}
 
-	// copy up to len bytes of file at path starting at offset to dst via cache
+	/**
+	 * Copy up to len bytes to dst from file at provided Path using the provided AsyncReadThroughFileCache starting at the given offset.
+	 *
+	 * @param dst the destination
+	 * @param cache the cache through which to read the file
+	 * @param path the Path of the file
+	 * @param offset the offset of the file from which to start copying
+	 * @param len the maximum number of bytes to copy
+	 * @param exec the Executor to run on
+	 * @return the completable future indicating the number of bytes copied
+	 */
 	public static CompletableFuture<Long> copy(AsyncByteWriter dst, AsyncReadThroughFileCache cache, Path path, long offset, long len, Executor exec) {
 		AsyncByteArrayReader src = new AsyncReadThroughFileCache.ReadAhead(cache, path, (int)(offset / cache.chunkSize()));
 
 		return copy(dst, src, offset % cache.chunkSize(), len, exec);
 	}
 	
-	// copy up to len bytes of src to dst file starting at offset with given chunkSize and >=1 parallel writes
+	/**
+	 * Copy up to len bytes from src to dst starting at provided offset.
+	 *
+	 * @param dst the destination
+	 * @param offset the destination offset at which to start writing
+	 * @param src the source
+	 * @param len the maximum number of bytes to copy
+	 * @param chunkSize the chunk size 
+	 * @param parallel max number of parallel writes to dst
+	 * @param exec the Executor to run in
+	 * @return the completable future indicating total number of bytes copied
+	 */
 	public static CompletableFuture<Long> copy(AsynchronousFileChannel dst, long offset, AsyncByteBufferReader src, long len, int chunkSize, int parallel, Executor exec) {
 		long[] offs = new long[] { offset };
 		long[] left = new long[] { len };
@@ -146,12 +193,31 @@ public class AsyncCopiers {
 		return CompletableFuture.completedFuture(written.get());
 	}
 	
-	// default parallel writes to 2
+	/**
+	 * As copy(AsynchronousFileChannel dst, long offset, AsyncByteBufferReader src, long len, int chunkSize, int parallel, Executor exec) but with default parallel writes of 2.
+	 *
+	 * @param dst the destination
+	 * @param offset the destination offset at which to start writing
+	 * @param src the source
+	 * @param len the maximum number of bytes to copy
+	 * @param chunkSize the chunk size 
+	 * @param exec the Executor to run in
+	 * @return the completable future indicating total number of bytes copied
+	 */
 	public static CompletableFuture<Long> copy(AsynchronousFileChannel dst, long offset, AsyncByteBufferReader src, long len, int chunkSize, Executor exec) {
 		return copy(dst, offset, src, len, chunkSize, 2, exec);
 	}
 
-	// default chunk size to 128k
+	/**
+	 * As copy(AsynchronousFileChannel dst, long offset, AsyncByteBufferReader src, long len, int chunkSize, Executor exec) with default chunksize of 128k.
+	 *
+	 * @param dst the destination
+	 * @param offset the destination offset at which to start writing
+	 * @param src the source
+	 * @param len the maximum number of bytes to copy
+	 * @param exec the Executor to run in
+	 * @return the completable future indicating total number of bytes copied
+	 */
 	public static CompletableFuture<Long> copy(AsynchronousFileChannel dst, long offset, AsyncByteBufferReader src, long len, Executor exec) {
 		return copy(dst, offset, src, len, 128*1024, exec);
 	}

@@ -36,7 +36,20 @@ import java.util.stream.Stream;
 
 import com.ea.async.Async;
 
+/**
+ * Helper class for asynchronously working with streams of CompletableFutures.
+ */
 public class AsyncStreams {
+	private AsyncStreams() {} // hide constructor
+	
+	/**
+	 * Asynchronously convert a Stream of CompletableFutures to an array.
+	 *
+	 * @param <A> the generic type
+	 * @param stream the stream of CFs
+	 * @param generator the array constructor
+	 * @return the completable future
+	 */
 	public static <A> CompletableFuture<A[]> toArray(Stream<CompletableFuture<A>> stream, IntFunction<A[]> generator) {
 		@SuppressWarnings("unchecked")
 		CompletableFuture<A>[] cfs = stream.toArray(CompletableFuture[]::new);

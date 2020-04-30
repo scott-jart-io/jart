@@ -35,16 +35,29 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Asynchronous semaphore.
+ */
 public class AsyncSema {
 	private final Queue<CompletableFuture<Void>> waiters;
 	private final AtomicInteger permits;
 	
+	/**
+	 * Instantiates a new asynchronous semaphore.
+	 *
+	 * @param permits the permits
+	 */
 	@SuppressWarnings("unchecked")
 	public AsyncSema(int permits) {
 		this.waiters = (Queue<CompletableFuture<Void>>) newQueue();
 		this.permits = new AtomicInteger(permits);
 	}
 	
+	/**
+	 * Acquire a permit.
+	 *
+	 * @return the completable future
+	 */
 	CompletableFuture<Void> acquire() {
 		CompletableFuture<Void> cf = new CompletableFuture<Void>();
 		
@@ -54,6 +67,11 @@ public class AsyncSema {
 		return cf;
 	}
 
+	/**
+	 * Try to synchronously acquire a permit.
+	 *
+	 * @return true, if successful
+	 */
 	boolean tryAcquire() {
 		for(;;) {
 			int curPermits = permits.get();
@@ -65,11 +83,19 @@ public class AsyncSema {
 		}
 	}
 
+	/**
+	 * Release a permit.
+	 */
 	void release() {
 		if(permits.incrementAndGet() <= 0)
 			waiters.poll().complete(null);
 	}
 	
+	/**
+	 * Overrideable to create a new Queue. Must be thread safe.
+	 *
+	 * @return the queue
+	 */
 	protected Queue<?> newQueue() {
 		return new ConcurrentLinkedQueue<Object>();
 	}

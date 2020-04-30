@@ -32,9 +32,23 @@ package io.jart.async;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Simple interface for asynchronously reading chunks of bytes as byte[].
+ */
 public interface AsyncByteArrayReader {
 	public static final byte[] EOF = new byte[0];
 
+	/**
+	 * Read a chunk of bytes (should return EOF for end of file/stream/etc).
+	 *
+	 * @return the completable future holding the result
+	 */
 	public CompletableFuture<byte[]> read();
+	
+	/**
+	 * Try to synchronously read (should return EOF for end of file/stream/etc).
+	 *
+	 * @return the byte[]
+	 */
 	public byte[] tryRead();
 }

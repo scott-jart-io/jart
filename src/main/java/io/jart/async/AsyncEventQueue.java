@@ -32,44 +32,84 @@ package io.jart.async;
 
 import io.jart.util.EventQueue;
 
-// not sure if this is a flavor of an existing queue. i can't immediately find what type if so.
-// it's optimized for lots of event churn -- events being added then removed, as hopefully most
-// tcp retransmission timers never have to fire!
-// insert/erase are O(1); average number of moves between lists for a given event is roughly
-// log2(M)/2 where M is the average distance from "now" at add time; so omega(log(M))
+/**
+ * EventQueue implementation that asynchronously dispatches events using AsyncPipes.
+ * 
+ * not sure if this is a flavor of an existing queue. i can't immediately find what type if so.
+ * it's optimized for lots of event churn -- events being added then removed, as hopefully most
+ * tcp retransmission timers never have to fire!
+ * insert/erase are O(1); average number of moves between lists for a given event is roughly
+ * log2(M)/2 where M is the average distance from "now" at add time; so omega(log(M))
+ */
 public class AsyncEventQueue implements EventQueue {
+	
+	/**
+	 * An Event in a linked list of events
+	 */
 	public static class Event {
+		// linked list references
 		Event prev;
 		Event next;
 		
-		protected final AsyncPipe<? super Event> eventPipe;
+		protected final AsyncPipe<? super Event> eventPipe; // pipe to which we dispatch the event
 		
-		private long time;
+		private long time; // when the event is scheduled to fire
 
+		/**
+		 * Instantiates a new event.
+		 *
+		 * @param pipe the pipe to which the event will be dispatched
+		 * @param time the time the event is scheduled to fire
+		 */
 		public Event(AsyncPipe<? super Event> pipe, long time) {
 			prev = next = this;
 			this.eventPipe = pipe;
 			this.time = time;
 		}
 		
+		/**
+		 * Instantiates a new event initially set to "never" fire (scheduled time is Long MAX_VALUE).
+		 *
+		 * @param pipe the pipe
+		 */
 		public Event(AsyncPipe<? super Event> pipe) {
 			this(pipe, Long.MAX_VALUE);
 		}
 
+		/**
+		 * Instantiates a new dummy event.
+		 */
 		Event() {
 			this(null, Long.MAX_VALUE);
 		}
 
+		/**
+		 * Gets the scheduled fire time.
+		 *
+		 * @return the time
+		 */
 		public long getTime() {
 			return time;
 		}
 
+		/**
+		 * Sets the scheduled fire time.
+		 *
+		 * Only valid for events that are not enqueued.
+		 * 
+		 * @param time the new time
+		 */
 		public void setTime(long time) {
 			if(prev != this || next != this)
 				throw new IllegalStateException("trying to set time on active event");
 			this.time = time;
 		}
 
+		/**
+		 * Adds the provided event after this event in the linked list.
+		 *
+		 * @param event the event
+		 */
 		void add(Event event) {
 			event.prev = this;
 			event.next = next;
@@ -77,6 +117,9 @@ public class AsyncEventQueue implements EventQueue {
 			next = event;
 		}
 
+		/**
+		 * Removes this event from the linked list.
+		 */
 		void remove() {
 			prev.next = next;
 			next.prev = prev;
@@ -87,6 +130,11 @@ public class AsyncEventQueue implements EventQueue {
 	private Event[] lanes = new Event[] { new Event() }; // each lane is circular w/ a sentinel here
 	private long lastTime = 0;
 
+	/**
+	 * Adds the event in its proper place in the queue.
+	 *
+	 * @param event the event
+	 */
 	private void addEvent(Event event) {
 		long d = Math.max(0,  event.time - lastTime);
 		int laneNo = 64 - Long.numberOfLeadingZeros(d);
@@ -106,17 +154,33 @@ public class AsyncEventQueue implements EventQueue {
 		headTail.add(event);
 	}
 
+	/**
+	 * Adds the event to the linked list if it isn't already in a queue.
+	 *
+	 * @param event the event
+	 */
 	// add (if not already added somewhere)
 	public void add(Event event) {
 		if(event.next == event)
 			addEvent(event);
 	}
 
+	/**
+	 * Removes the event from the queue.
+	 *
+	 * @param event the event
+	 */
 	@Override
 	public void remove(Event event) {
 		event.remove();
 	}
 	
+	/**
+	 * Update time of the queue and optionally delivers events that have become due.
+	 *
+	 * @param curTime the cur time
+	 * @param deliver if true, deliver messages that have become due
+	 */
 	// update current time
 	public void updateTime(long curTime, boolean deliver) {
 		if(curTime <= lastTime)
@@ -147,9 +211,14 @@ public class AsyncEventQueue implements EventQueue {
 			this.deliver();
 	}
 
-	// return next time update will have any effect -- 
-	// can be used as a conservative estimate of next time more events will 
-	// become deliverable
+	/**
+	 * Caclulate the next time at which updateTime(long curTime, boolean deliver) will do ant work.
+	 * 
+	 * Does NOT guarantee that the returned time will result in any events becoming due. Just that updateTime will do work.
+	 * Still, it can be used an a conservative estimate of when the next event will become due.
+	 *
+	 * @return the next time at which updateTime will do any work
+	 */
 	public long nextUpdateTime() {
 		long nextUpdateTime = Long.MAX_VALUE;
 		long threshDiff = 1;
@@ -159,6 +228,9 @@ public class AsyncEventQueue implements EventQueue {
 		return nextUpdateTime;
 	}
 
+	/**
+	 * Deliver an events that are already due. Does not update the current time.
+	 */
 	// fire any events that have arrived
 	public void deliver() {
 		// fire everything in lane 0
@@ -175,6 +247,12 @@ public class AsyncEventQueue implements EventQueue {
 		}
 	}
 
+	/**
+	 * Update an event's scheduled time.
+	 *
+	 * @param event the event to update
+	 * @param time the new delivery time time
+	 */
 	@Override
 	public void update(Event event, long time) {
 		remove(event);

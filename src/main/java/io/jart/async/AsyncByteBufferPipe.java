@@ -39,8 +39,15 @@ import com.ea.async.Async;
 
 import io.jart.util.PausableExecutor;
 
+/**
+ * AsyncByteBufferReader implementation where data is provided by ByteBuffers passed to write method.
+ */
 public class AsyncByteBufferPipe implements AsyncByteBufferReader {
 	private static ByteBuffer emptyByteBuffer = ByteBuffer.allocate(0);
+	
+	/**
+	 * Simple POJO to hold a ByteBuffer and whether we need to copy the ByteBuffer if not consumed synchronously.
+	 */
 	private static class ByteBufferRef {
 		public boolean needsCopy;
 		public ByteBuffer byteBuffer;
@@ -49,15 +56,30 @@ public class AsyncByteBufferPipe implements AsyncByteBufferReader {
 	private final AsyncPipe<ByteBufferRef> pipe;
 	private ByteBufferRef curRef;
 	
+	/**
+	 * Instantiates a new async byte buffer pipe.
+	 *
+	 * @param exec the Executor to use for read/write
+	 */
 	public AsyncByteBufferPipe(Executor exec) {
 		this.exec = new PausableExecutor(exec);
 		pipe = new AsyncPipe<ByteBufferRef>();
 	}
 	
+	/**
+	 * PausableExecutor (wrapping the Executor passed at instantiation) used by read and write.
+	 *
+	 * @return the pausable executor
+	 */
 	public PausableExecutor executor() { return exec; }
 	
 	// write a buffer to the queue
 	// buffer is synchronously consumed
+	/**
+	 * Write.
+	 *
+	 * @param src the src
+	 */
 	// write a null to signify eof
 	public void write(ByteBuffer src) {
 		// write buffer as-is
@@ -88,6 +110,12 @@ public class AsyncByteBufferPipe implements AsyncByteBufferReader {
 		}
 	}
 
+	/**
+	 * Read.
+	 *
+	 * @param consumer the consumer
+	 * @return the completable future
+	 */
 	@Override
 	public CompletableFuture<Void> read(BiPredicate<ByteBuffer, Boolean> consumer) {
 		// try to do it in a fixed few iterations without AsyncLoop overhead

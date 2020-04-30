@@ -53,22 +53,60 @@ import io.jart.net.http.HTTPDConnection;
 import io.jart.netmap.bridge.MsgRelay;
 import io.jart.util.EventQueue;
 
+/**
+ * Example HTTPD implementation that does GETs and PUTs to/from (by default) user's home directory / www
+ * as well as POSTs where it hashes POST-ed data and responds with the hash value.
+ */
 public class HTTPDTestConnection extends HTTPDConnection {
 	private final AsyncReadThroughFileCache fc;
 	private final String root;
 	
 	
+	/**
+	 * Instantiates a new HTTPD test connection.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the mss
+	 * @param eventQueue the event queue to use for tcp bookkeeping
+	 * @param msgRelay the msg relay to use for safe unsynchronized message passing
+	 * @param startSeqNum the starting sequence num
+	 * @param exec the Executor to use for tcp work
+	 * @param fc the file cache to use for caching GETs
+	 * @param root the root folder to serve from (default home directory / www)
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public HTTPDTestConnection(TcpContext tcpContext, int mss, EventQueue eventQueue, MsgRelay msgRelay, int startSeqNum, Executor exec, AsyncReadThroughFileCache fc, String root, Executor connExec) {
 		super(tcpContext, mss, eventQueue, msgRelay, startSeqNum, exec, connExec);
 		this.fc = fc;
 		this.root = (root != null) ? root : System.getProperty("user.home") + "/www";
 	}
 
+	/**
+	 * Instantiates a new HTTPD test connection.
+	 *
+	 * @param tcpContext the tcp context
+	 * @param mss the mss
+	 * @param eventQueue the event queue to use for tcp bookkeeping
+	 * @param msgRelay the msg relay to use for safe unsynchronized message passing
+	 * @param startSeqNum the starting sequence num
+	 * @param exec the Executor to use for tcp work
+	 * @param fc the file cache to use for caching GETs
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public HTTPDTestConnection(TcpContext tcpContext, int mss, EventQueue eventQueue, MsgRelay msgRelay, int startSeqNum, Executor exec, AsyncReadThroughFileCache fc, Executor connExec) {
 		this(tcpContext, mss, eventQueue, msgRelay, startSeqNum, exec, fc, null, connExec);
 	}
 
+	/**
+	 * Serve GET requests.
+	 *
+	 * @param url the url
+	 * @param headers the headers
+	 * @return the completable future signaling completion
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	private CompletableFuture<Void> serveGet(String url, Header[] headers) throws IOException {
+		// TODO doesn't try to gracefully handle any errors
 		Path src = FileSystems.getDefault().getPath(root, url);
 		long size = fc.size(src);
 		Async.await(sendResponseHeader(200, "ok", Arrays.asList(new String[] {
@@ -78,7 +116,16 @@ public class HTTPDTestConnection extends HTTPDConnection {
 		return AsyncCopiers.copy(getWriter(), fc, src, 0, size, executor()).thenApply((Long l)->(Void)null);
 	}
 	
+	/**
+	 * Serve PUT requests.
+	 *
+	 * @param url the url
+	 * @param headers the headers
+	 * @return the completable future signaling completion
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	private CompletableFuture<Void> servePut(String url, Header[] headers) throws IOException {
+		// TODO doesn't try to gracefully handle any errors
 		Path dst = FileSystems.getDefault().getPath(root, url);
 		Long size = null;
 		
@@ -95,9 +142,17 @@ public class HTTPDTestConnection extends HTTPDConnection {
 		return sendResponseHeader(200, "ok", null);
 	}
 
+	// match any urls that have .. in them to reject them
 	private static Pattern rejectPat = Pattern.compile("^[^/]|/\\.\\./|/\\.\\.$");
+	
 	private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
 	
+	/**
+	 * Bytes to hex string.
+	 *
+	 * @param bytes the bytes
+	 * @return the string
+	 */
 	private static String bytesToHex(byte[] bytes) {
 	    char[] hexChars = new char[bytes.length * 2];
 	    for (int j = 0; j < bytes.length; j++) {
@@ -108,8 +163,18 @@ public class HTTPDTestConnection extends HTTPDConnection {
 	    return new String(hexChars);
 	}
 	
+	/**
+	 * Serve and http request.
+	 *
+	 * @param verb the verb
+	 * @param url the url
+	 * @param headers the headers
+	 * @return the completable future signaling completion
+	 * @throws Exception the exception
+	 */
 	@Override
 	protected CompletableFuture<Void> serve(String verb, String url, Header[] headers) throws Exception {
+		// reject anything w/ .. in it (though this is the best we try to do wrt security!)
 		if(rejectPat.matcher(url).find())
 			return sendResponseHeader(404, "not found", null);
 
@@ -145,17 +210,23 @@ public class HTTPDTestConnection extends HTTPDConnection {
 		else
 			mdBuf = null;
 		
+		// http response header
 		Async.await(sendResponseHeader(200, "ok", Arrays.asList(new String[] { "content-type: text/plain" })));
 
+		// dump of various bits of info
+		
+		// verb + url
 		Async.await(getWriter().write(verb));
 		Async.await(getWriter().write(crlf));
 		Async.await(getWriter().write(url));
 		Async.await(getWriter().write(crlf));
 
+		// headers
 		for(Header header: headers) {
 			Async.await(getWriter().write(header.toString()));
 			Async.await(getWriter().write(crlf));
 		}
+		// hash code if we have one
 		if(mdBuf != null) {
 			Async.await(getWriter().write(crlf));
 			Async.await(getWriter().write("sha1 = " + bytesToHex(mdBuf)));

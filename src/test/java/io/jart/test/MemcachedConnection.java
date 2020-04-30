@@ -43,16 +43,35 @@ import io.jart.net.TcpContext;
 import io.jart.netmap.bridge.MsgRelay;
 import io.jart.util.EventQueue;
 
-// async memcached implementation
+/**
+ * Async memcached implementation based on TcpConnection.
+ */
 public class MemcachedConnection extends TcpConnection {
 	private final Map<Key, Value> map;
 	private Memcached.AsyncSession sess;
 	
+	/**
+	 * Instantiates a new memcached connection.
+	 *
+	 * @param map key value store
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param eventQueue the event queue to use for tcp bookkeeping
+	 * @param msgRelay the msg relay for unsynchronized message passing
+	 * @param startSeqNum the starting sequence num
+	 * @param exec the Executor for tcp work
+	 * @param connExec the Executor for non-tcp work
+	 */
 	public MemcachedConnection(Map<Key, Value> map, TcpContext tcpContext, int mss, EventQueue eventQueue, MsgRelay msgRelay,  int startSeqNum, Executor exec, Executor connExec) {
 		super(tcpContext, mss, eventQueue, msgRelay, startSeqNum, exec, connExec);
 		this.map = map;
 	}
 
+	/**
+	 * Instantiate and run an AsyncSession.
+	 *
+	 * @return the completable future signalling completion
+	 */
 	@Override
 	protected CompletableFuture<Void> connectionRun() {
 		try {

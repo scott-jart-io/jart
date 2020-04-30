@@ -51,51 +51,17 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 
+/**
+ * Simple asynchronous read through file cache.
+ * 
+ * Why do we want this? Isn't the OS cache better? Yes, the OS cache is better in nearly every way.
+ * But for us using it would introduce at least 1 additional data copy.
+ */
 public class AsyncReadThroughFileCache {
-	public static class ReadAhead implements AsyncByteArrayReader {
-		private final AsyncReadThroughFileCache cache;
-		private final Path path;
-		private final CompletableFuture<byte[]>[] reads;
-		private int curChunk;
-		
-		@SuppressWarnings("unchecked")
-		public ReadAhead(AsyncReadThroughFileCache cache, Path path, int readAheadChunks, int firstChunk) {
-			this.cache = cache;
-			this.path = path;
-			this.reads = new CompletableFuture[readAheadChunks];
-			for(int i = 0; i < readAheadChunks; i++)
-				reads[i] = cache.readChunk(path, i);
-			this.curChunk = readAheadChunks;
-		}
-		
-		public ReadAhead(AsyncReadThroughFileCache cache, Path path, int firstChunk) {
-			this(cache, path, Math.max(1, (128*1024) / cache.chunkSize()), firstChunk);
-		}
-		
-		public ReadAhead(AsyncReadThroughFileCache cache, Path path) {
-			this(cache, path, 0);
-		}
-
-		public CompletableFuture<byte[]> read() {
-			int i = curChunk % reads.length;
-			CompletableFuture<byte[]> result = reads[i];
-			
-			reads[i] = cache.readChunk(path, curChunk++);
-			return result;
-		}
-
-		public byte[] tryRead() {
-			int i = curChunk % reads.length;
-			byte[] result = reads[i].getNow(null);
-			
-			if(result != null)
-				reads[i] = cache.readChunk(path, curChunk++);
-			return result;
-		}
-	}
-	
+	// chunk representing end of file
 	public static final byte[] EOFChunk = AsyncByteArrayReader.EOF;
 	
+	// pre-allocated cf for EOF
 	private static final CompletableFuture<byte[]> cfEOFData = CompletableFuture.completedFuture(EOFChunk);
 	
 	@SuppressWarnings("serial")
@@ -103,29 +69,107 @@ public class AsyncReadThroughFileCache {
 		add(StandardOpenOption.READ);
 	}};
 	
+       /**
+        * Implement an AsyncByteArrayReader that immediately issues reads for a number of chunks.
+        */
+       public static class ReadAhead implements AsyncByteArrayReader {
+               private final AsyncReadThroughFileCache cache;
+               private final Path path;
+               private final CompletableFuture<byte[]>[] reads;
+               private final int firstChunk;
+               private int curChunk;
+
+               @SuppressWarnings("unchecked")
+               public ReadAhead(AsyncReadThroughFileCache cache, Path path, int readAheadChunks, int firstChunk) {
+                       this.cache = cache;
+                       this.path = path;
+                       this.reads = new CompletableFuture[readAheadChunks];
+                       this.firstChunk = firstChunk;
+                       this.curChunk = readAheadChunks;
+                       for(int i = 0; i < readAheadChunks; i++)
+                               reads[i] = cache.readChunk(path, firstChunk + i);
+               }
+
+               public ReadAhead(AsyncReadThroughFileCache cache, Path path, int firstChunk) {
+                       this(cache, path, Math.max(1, (128*1024) / cache.chunkSize()), firstChunk);
+               }
+
+               public ReadAhead(AsyncReadThroughFileCache cache, Path path) {
+                       this(cache, path, 0);
+               }
+
+               // reads must be serial -- may not request 2 reads at once
+               public CompletableFuture<byte[]> read() {
+                       int i = curChunk % reads.length;
+                       CompletableFuture<byte[]> result = reads[i];
+
+                       reads[i] = cache.readChunk(path, firstChunk + curChunk++);
+                       return result;
+               }
+
+               // no async reads can be pending
+               public byte[] tryRead() {
+                       int i = curChunk % reads.length;
+                       byte[] result = reads[i].getNow(null);
+
+                       if(result != null)
+                               reads[i] = cache.readChunk(path, firstChunk + curChunk++);
+                       return result;
+               }
+       }
+
+	/**
+	 * Result of a read operation.
+	 */
 	public static class ReadResult {
-		public final byte[] data;
-		public final int offset;
+		public final byte[] data; // data for this read result
+		public final int offset; // offset in data at which applicable data for this read result starts
 		
+		/**
+		 * Instantiates a new read result.
+		 *
+		 * @param data the data
+		 * @param offset the offset
+		 */
 		public ReadResult(byte[] data, int offset) {
 			this.data = data;
 			this.offset = offset;
 		}
 		
+		/**
+		 * Length of data.
+		 *
+		 * @return the int
+		 */
 		public int length() { return data.length - offset; }
 	}
 	
+	// ReadResult representing EOF
 	public static final ReadResult EOFRR = new ReadResult(EOFChunk, 0);
 
+	/**
+	 * Key for a chunk.
+	 */
 	private static class ChunkKey {
-		public final Path path;
-		public final int chunkNum;
+		public final Path path; // file path
+		public final int chunkNum; // and chunk number
 		
+		/**
+		 * Instantiates a new chunk key.
+		 *
+		 * @param path the path
+		 * @param chunkNum the chunk num
+		 */
 		public ChunkKey(Path path, int chunkNum) {
 			this.path = path;
 			this.chunkNum = chunkNum;
 		}
 
+		/**
+		 * Hash code.
+		 *
+		 * @return the int
+		 */
 		@Override
 		public int hashCode() {
 			final int prime = 31;
@@ -135,6 +179,12 @@ public class AsyncReadThroughFileCache {
 			return result;
 		}
 
+		/**
+		 * Equals.
+		 *
+		 * @param obj the obj
+		 * @return true, if successful
+		 */
 		@Override
 		public boolean equals(Object obj) {
 			if (this == obj)
@@ -155,10 +205,21 @@ public class AsyncReadThroughFileCache {
 		}
 	}
 	
+	// caffeine cache for actual chunk data
 	private final @NonNull AsyncLoadingCache<ChunkKey, byte[]> chunkCache;
+	// caffeine cache for file channels
 	private final @NonNull LoadingCache<Path, AsynchronousFileChannel> channelCache;
+	// chunk size for this cache
 	private final int chunkSize;
 	
+	/**
+	 * Issue a read.
+	 *
+	 * @param path the path
+	 * @param chunkNum the chunk num
+	 * @return the completable future
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	private CompletableFuture<byte[]> issueRead(Path path, int chunkNum) throws IOException {
 		AsynchronousFileChannel fc = channelCache.get(path);
 		long offset = chunkSize * (long)chunkNum;
@@ -190,6 +251,14 @@ public class AsyncReadThroughFileCache {
 		return cf;
 	}
 
+	/**
+	 * Instantiates a new cache.
+	 *
+	 * @param size the maximum number of bytes to cache
+	 * @param channels the maxmimum number of channels to have open
+	 * @param chunkSize the data chunk size
+	 * @param exec the Executor to run on (null means ForkJoinPool commonPool)
+	 */
 	public AsyncReadThroughFileCache(long size, int channels, int chunkSize, ExecutorService exec) {
 		ExecutorService fexec = (exec != null) ? exec : ForkJoinPool.commonPool();
 
@@ -218,40 +287,101 @@ public class AsyncReadThroughFileCache {
 		this.chunkSize = chunkSize;
 	}
 	
+	/**
+	 * Instantiates a new cache w/ default Executor.
+	 *
+	 * @param size the maximum number of bytes to cache
+	 * @param channels the maxmimum number of channels to have open
+	 * @param chunkSize the data chunk size
+	 */
 	public AsyncReadThroughFileCache(long size, int channels, int chunkSize) {
 		this(size, channels, chunkSize, null);
 	}
 	
+	/**
+	 * Instantiates a new cache w/ default max open channels.
+	 *
+	 * @param size the maximum number of bytes to cache
+	 * @param chunkSize the data chunk size
+	 * @param exec the Executor to run on (null means ForkJoinPool commonPool)
+	 */
 	public AsyncReadThroughFileCache(long size, int chunkSize, ExecutorService exec) {
 		this(size, 1000, chunkSize, exec);
 	}
 	
+	/**
+	 * Instantiates a new cache w/ default Executor and max open channels.
+	 *
+	 * @param size the maximum number of bytes to cache
+	 * @param chunkSize the data chunk size
+	 */
 	public AsyncReadThroughFileCache(long size, int chunkSize) {
 		this(size, chunkSize, null);
 	}
 	
+	/**
+	 * Instantiates a new cache w/ default max open channels, chunk size.
+	 *
+	 * @param size the maximum number of bytes to cache
+	 * @param chunkSize the data chunk size
+	 * @param exec the Executor to run on (null means ForkJoinPool commonPool)
+	 */
 	public AsyncReadThroughFileCache(long size, ExecutorService exec) {
 		this(size, 4096, exec);
 	}
 	
+	/**
+	 * Instantiates a new async read through file cache with all defaults.
+	 *
+	 * @param size the size
+	 */
 	public AsyncReadThroughFileCache(long size) {
 		this(size, null);
 	}
 
+	/**
+	 * Read a chunk.
+	 *
+	 * @param path the file path
+	 * @param chunkNum the chunk number
+	 * @return the completable future
+	 */
 	public CompletableFuture<byte[]> readChunk(Path path, int chunkNum) {
 		return chunkCache.get(new ChunkKey(path, chunkNum));
 	}
 	
+	/**
+	 * Gets the chunk if read.
+	 * May not be completed, but the read has been issued.
+	 *
+	 * @param path the file path
+	 * @param chunkNum the chunk number
+	 * @return the chunk if read
+	 */
 	public CompletableFuture<byte[]> getChunkIfRead(Path path, int chunkNum) {
 		return chunkCache.getIfPresent(new ChunkKey(path, chunkNum));
 	}
 	
+	/**
+	 * Tries to get the chunk now.
+	 *
+	 * @param path the file path
+	 * @param chunkNum the chunk number
+	 * @return the chunk if cached or null
+	 */
 	public byte[] getChunkNow(Path path, int chunkNum) {
 		CompletableFuture<byte[]> chunkCf = getChunkIfRead(path, chunkNum);
 		
 		return (chunkCf == null) ? null : chunkCf.getNow(null);
 	}
 	
+	/**
+	 * Read data at the given offset.
+	 *
+	 * @param path the file path
+	 * @param offset the file offset
+	 * @return the completable future
+	 */
 	public CompletableFuture<ReadResult> read(Path path, long offset) {
 		int chunkNum = (int) (offset / chunkSize);
 		CompletableFuture<byte[]> dataCF = readChunk(path, chunkNum);
@@ -262,10 +392,23 @@ public class AsyncReadThroughFileCache {
 		});
 	}
 
+	/**
+	 * Gets the size of the file at path.
+	 * Faults the file into the channel cache.
+	 *
+	 * @param path the file path
+	 * @return the size of the file
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	public long size(Path path) throws IOException {
 		return channelCache.get(path).size();
 	}
 	
+	/**
+	 * Returns the chunk size provided at construction time.
+	 *
+	 * @return the int
+	 */
 	public int chunkSize() {
 		return chunkSize;
 	}

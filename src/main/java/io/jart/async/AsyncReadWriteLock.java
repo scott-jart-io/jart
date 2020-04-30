@@ -35,27 +35,62 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Asynchronous read/write lock.
+ * Allows up to 1<<21 read locks, readers, writers waiting to fit state in a 64bit long
+ */
 public class AsyncReadWriteLock {
 	private final Queue<CompletableFuture<Void>> readWaiters = new ConcurrentLinkedQueue<CompletableFuture<Void>>();
 	private final Queue<CompletableFuture<Void>> writeWaiters = new ConcurrentLinkedQueue<CompletableFuture<Void>>();
 	private final AtomicLong state = new AtomicLong();
 	
+	/**
+	 * Make a long holding 21bit values for lock held count, readers waiting, and writers waiting.
+	 *
+	 * @param held the number of locks held (0 for unlocked, >0 for # of read locks, or -1 for write lock)
+	 * @param rwaiting the rwaiting
+	 * @param wwaiting the wwaiting
+	 * @return the long
+	 */
 	private static long makeState(int held, int rwaiting, int wwaiting) {
 		return ((long)held << 42) | ((long)rwaiting << 21) | wwaiting;
 	}
 	
+	/**
+	 * Gets the lock held count from a 64bit state.
+	 *
+	 * @param state the state
+	 * @return the held
+	 */
 	private static int getHeld(long state) {
 		return (int) (state >> 42);
 	}
 	
+	/**
+	 * Gets the number of readers waiting from a 64bit state.
+	 *
+	 * @param state the state
+	 * @return the r waiting
+	 */
 	private static int getRWaiting(long state) {
 		return (int) ((state >> 21) & 0x1fffff);
 	}
 	
+	/**
+	 * Gets the number of writers waiting from a 64bit state.
+	 *
+	 * @param state the state
+	 * @return the w waiting
+	 */
 	private static int getWWaiting(long state) {
 		return (int) (state & 0x1fffff);
 	}
 
+	/**
+	 * Request a read lock.
+	 *
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> readLock() {
 		CompletableFuture<Void> cf = new CompletableFuture<Void>();
 		
@@ -79,6 +114,12 @@ public class AsyncReadWriteLock {
 		}
 		return cf;
 	}
+	
+	/**
+	 * Request a write lock.
+	 *
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> writeLock() {
 		CompletableFuture<Void> cf = new CompletableFuture<Void>();
 		
@@ -103,6 +144,10 @@ public class AsyncReadWriteLock {
 		
 		return cf;
 	}
+	
+	/**
+	 * Release a read lock.
+	 */
 	public void readUnlock() {
 		for(;;) {
 			long curState = state.get();
@@ -120,6 +165,10 @@ public class AsyncReadWriteLock {
 				break;
 		}
 	}
+	
+	/**
+	 * Relase a write lock.
+	 */
 	public void writeUnlock() {
 		for(;;) {
 			long curState = state.get();

@@ -64,15 +64,24 @@ import io.jart.util.NativeBitSet;
 import io.jart.util.RTThreadFactory;
 import io.jart.util.RoundRobinExecutor;
 
-// sample app that brings up a tcp/ip layer on top of a basic netmap bridge
-// toy memcached, and httpd layers available.
+/**
+ * Sample app that brings up a tcp/ip layer on top of a basic netmap bridge.
+ * Toy memcached, and httpd layers available.
+ */
 public class NetmappingBridge {
 	static {
 		Async.init();
 	}
 
-	// TODO not very rigorous
+	/**
+	 * Guess ipv4 addr given a device.
+	 *
+	 * @param devName the device name (i.e., /dev/em2)
+	 * @return 32bit ipv4 address
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
 	private static int guessIp4Addr(String devName) throws IOException {
+		// TODO not very rigorous
 		for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
 			if (ni.getName().equals(devName)) {
 				for (InetAddress ia : Collections.list(ni.getInetAddresses())) {
@@ -92,9 +101,16 @@ public class NetmappingBridge {
 
 	private static final Logger logger = Logger.getLogger(NetmappingBridge.class);
 
+	/**
+	 * HelpingWorkerThread subclass that attempts to run in real time priority and w/ cpu affinity.
+	 */
 	private static class NMWorkerThread extends HelpingWorkerThread {
+		
 		private static final AtomicInteger cpu = new AtomicInteger();
 		
+		/**
+		 * Attempts to move to real time priority, enabled cpu affinity, and then class super.
+		 */
 		@Override
 		public void run() {
 			setName(RTThreadFactory.setRTPrio() ?  "NM RT" : "NM");
@@ -123,12 +139,19 @@ public class NetmappingBridge {
 		}
 	}
 	
+	/**
+	 * Async main.
+	 *
+	 * @param args command line arguments
+	 * @return the completable future whose completion signals primary execution has completed
+	 */
 	private static CompletableFuture<Void> asyncMain(String[] args) {
 		try {
-			String devName = args[0];
-			int mss = Integer.parseInt(args[1]);
-			int threadCount = Integer.parseInt(args[2]);
+			String devName = args[0]; // arg 0: device name
+			int mss = Integer.parseInt(args[1]); // arg 1: tcp mss
+			int threadCount = Integer.parseInt(args[2]); // arg 2: thread count
 			
+			// create threadCount worker threads
 			HelpingWorkerThread[] workerThreads = new HelpingWorkerThread[threadCount];
 			
 			workerThreads[0] = new NMWorkerThread();
@@ -139,29 +162,37 @@ public class NetmappingBridge {
 			for(int i = 0; i < threadCount; i++)
 				workerThreads[i].start();
 			
+			// wrap worker threads in an Executor
 			Executor exec = new RoundRobinExecutor(workerThreads);
 			SimpleInetBridgeTask sibt = new SimpleInetBridgeTask(devName, exec);
 			CompletableFuture<Void> sibtCf = sibt.run();
+			// wait for either failure or SimpleInetBridgeTask.Context to become available
 			CompletableFuture<Object> sibtCtxOrExit = CompletableFuture.anyOf(sibtCf, sibt.context);
+			// cast to SimpleInetBridgeTask.Context (or fail if it was anything else)
 			SimpleInetBridgeTask.Context sibtContext = (SimpleInetBridgeTask.Context)Async.await(sibtCtxOrExit);
 			
 			int ip4Addr = guessIp4Addr(devName);
 			Executor connExec = null; // default
 			SecureRandom secRand = new SecureRandom();
-			IntSupplier seqNumSupplier = () -> secRand.nextInt();
+			IntSupplier seqNumSupplier = () -> secRand.nextInt(); // generate random ints for initial seqNums
+			// create an underlying cache for toy memcached
 			Map<Key, Value> mcCache = new FixedSizeMap<Key, Value>(1024 * 1024, 512 * 1024 * 1024, (Key key, Value val)->{
 				return (long)val.efkvp.length;	
 			});
+			// create a file cache for the httpd
 			AsyncReadThroughFileCache fc = new AsyncReadThroughFileCache(512 * 1024 * 1024);
 
+			// start memcached
 			sibtContext.ip4TcpListen(new Ip4AddrAndPort(ip4Addr, 11211), (TcpContext tcpContext)->{
 				return new MemcachedLoop(mcCache, tcpContext, mss, sibtContext.eventQueue, seqNumSupplier.getAsInt(), exec);
 			});
 
+			// start httpd
 			sibtContext.ip4TcpListen(new Ip4AddrAndPort(ip4Addr, 80), (TcpContext tcpContext)->{
 				return new HTTPDTestConnection(tcpContext, mss, sibtContext.eventQueue, sibtContext.msgRelay, seqNumSupplier.getAsInt(), exec, fc, connExec);
 			});
 			
+			// we're done when the SimpleInetBridgeTask is done
 			return sibtCf;
 		} catch (Throwable th) {
 			CompletableFuture<Void> cf = new CompletableFuture<Void>();
@@ -172,11 +203,19 @@ public class NetmappingBridge {
 		}
 	}
 	
+	/**
+	 * The main method.
+	 *
+	 * @param args command line arguments
+	 * @throws InterruptedException the interrupted exception
+	 */
 	public static void main(String[] args) throws InterruptedException {
+		// start async main
 		AsyncRunnable asyncMain = ()->asyncMain(args);
 		ForkJoinTask<Void> mainTask = asyncMain.asForkJoinTask();
 		ForkJoinPool.commonPool().execute(mainTask);
 
+		// wait for async main to complete
 		mainTask.join();
 	}
 }

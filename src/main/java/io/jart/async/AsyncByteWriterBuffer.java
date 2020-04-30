@@ -34,26 +34,55 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
-// helps implement an asynchronous buffer for writing bytes on top of synchronous byte submission
+/**
+ * Implement an AsyncByteWriter that asynchronously accepts bytes but serially submits them while keeping
+ * a cap on the maximum number of bytes submitted but not "written".
+ */
 public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
+	
+	/**
+	 * Class representing a queued writer waiting (and associated size requirement).
+	 */
 	private static class Writer extends CompletableFuture<Void> {
 		public final int size;
 		
+		/**
+		 * Instantiates a new writer.
+		 *
+		 * @param size the size
+		 */
 		public Writer(int size) {
 			this.size = size;
 		}
 	}
-	private static class State {
-		public Writer writer;
-		public int size;
-	}
-	private final int cap;
-	private AtomicReference<State> state = new AtomicReference<State>(new State());
 	
+	/**
+	 * Class representing our State at any given time -- Object instead of members for atomic operations.
+	 */
+	private static class State {
+		public Writer writer; // waiting writer if any
+		public int size; // total size of bytes submitted but not written
+	}
+	private final int cap; // "maximum" number of bytes to have submitted but not written
+	private AtomicReference<State> state = new AtomicReference<State>(new State());
+
+	/**
+	 * Instantiates a new async byte writer buffer.
+	 *
+	 * @param cap the "maximum" number of bytes allowed in submitted-but-not-written state
+	 */
 	public AsyncByteWriterBuffer(int cap) {
 		this.cap = cap;
 	}
 
+	/**
+	 * Create a Writer that will complete when it can submit size bytes of data.
+	 *
+	 * Writer is completed immediately if size wouldn't exceed the cap OR nothing is submitted-but-not-written
+	 * 
+	 * @param size the size
+	 * @return the writer
+	 */
 	private Writer doWrite(int size) {
 		Writer result = new Writer(size);
 		State curState;
@@ -82,6 +111,12 @@ public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
 		return result;
 	}
 	
+	/**
+	 * Try to synchronously account for size bytes written.
+	 *
+	 * @param size the size
+	 * @return true, if successful
+	 */
 	private boolean doTryWrite(int size) {
 		State newState = null;
 		
@@ -101,19 +136,53 @@ public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
 		}
 	}
 
+	/**
+	 * Get number of bytes submitted but not written.
+	 *
+	 * @return the int
+	 */
 	public int size() { return state.get().size; }
+	
+	/**
+	 * Get the capacity supplied at instantiation time.
+	 *
+	 * @return the int
+	 */
 	public int cap() { return cap; }
 	
+	/**
+	 * Write a ByteBuffer.
+	 * Multiple concurrent writes are not allowed. A write's CF must complete before writing again.
+	 *
+	 * @param buf the source ByteBuffer
+	 * @return the completable future which completes when the buffer is submitted (but not necessarily written)
+	 */
 	@Override
 	public CompletableFuture<Void> write(ByteBuffer buf) {
 		return doWrite(buf.remaining()).thenRun(()->{ submit(buf); });
 	}
 
+	/**
+	 * Write a region of a byte[].
+	 * Multiple concurrent writes are not allowed. A write's CF must complete before writing again.
+	 *
+	 * @param bytes the source byte[]
+	 * @param offs the offset into bytes
+	 * @param len the number of bytes to write
+	 * @return the completable future which completes when the buffer is submitted (but not necessarily written)
+	 */
 	@Override
 	public CompletableFuture<Void> write(byte[] bytes, int offs, int len) {
 		return doWrite(len).thenRun(()->{ submit(bytes, offs, len); });
 	}
 
+	/**
+	 * Try to synchronously write (submit) a ByteBuffer.
+	 * No async write may be incomplete when calling.
+	 *
+	 * @param buf the buf
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean tryWrite(ByteBuffer buf) {
 		if(doTryWrite(buf.remaining())) {
@@ -123,6 +192,15 @@ public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
 		return false;
 	}
 
+	/**
+	 * Try to synchronously write (submit) a region of a byte[].
+	 * No async write may be incomplete when calling.
+	 *
+	 * @param bytes the bytes
+	 * @param offs the offs
+	 * @param len the len
+	 * @return true, if successful
+	 */
 	@Override
 	public boolean tryWrite(byte[] bytes, int offs, int len) {
 		if(doTryWrite(len)) {
@@ -132,7 +210,11 @@ public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
 		return false;
 	}
 
-	// note that we finished writing count bytes
+	/**
+	 * Needs to be called when submitted bytes have been fully written.
+	 *
+	 * @param count the count
+	 */
 	public void written(int count) {
 		State newState = new State();
 		
@@ -157,7 +239,19 @@ public abstract class AsyncByteWriterBuffer implements AsyncByteWriter {
 		}
 	}
 	
-	// override me -- synchronously submit bytes
+	/**
+	 * Override me -- synchronously submit bytes (make sure "written" is called when completed).
+	 *
+	 * @param buf the buf
+	 */
 	protected abstract void submit(ByteBuffer buf);
+	
+	/**
+	 * Override me -- synchronously submit bytes (make sure "written" is called when completed).
+	 *
+	 * @param bytes the bytes
+	 * @param offs the offs
+	 * @param len the len
+	 */
 	protected abstract void submit(byte[] bytes, int offs, int len);
 }

@@ -37,12 +37,26 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+/**
+ * Helper class for doing asyncronous loops (without accidentally building up huge CF chains).
+ */
 public class AsyncLoop {
 	public static final CompletableFuture<Boolean> cfTrue = CompletableFuture.completedFuture(true);
 	public static final CompletableFuture<Boolean> cfFalse = CompletableFuture.completedFuture(false);
 	public static final CompletableFuture<Void> cfVoid = CompletableFuture.completedFuture((Void)null);
 	
-	// perform a "do while" async in a way that won't result in huge CF chains
+	/**
+	 * Hide constructor
+	 */
+	private AsyncLoop() {}
+	
+	/**
+	 * Asynchronous do while loop.
+	 *
+	 * @param body Supplier representing the loop body -- supplies a CompletableFuture whose result, if true, causes the loop to continue.
+	 * @param exec the Executor to run the loop in (null will default to ForkJoinPool commonPool0
+	 * @return the completable future to indicate completion of the loop
+	 */
 	public static CompletableFuture<Void> doWhile(Supplier<CompletableFuture<Boolean>> body, Executor exec) {
 		Executor fexec = (exec != null) ? exec : ForkJoinPool.commonPool();
 		CompletableFuture<Void> result = new CompletableFuture<Void>();
@@ -62,6 +76,15 @@ public class AsyncLoop {
 		return result;
 	}
 
+	/**
+	 * Asynchronous generic iteration.
+	 *
+	 * @param <T> the generic type
+	 * @param iter the iterator which supplies a future for a T each iteration
+	 * @param consumer the consumer which synchronously consumes the T produced by the iterator and if it results in true, continues the iteratio
+	 * @param exec the Executor to run on
+	 * @return the completable future
+	 */
 	public static<T> CompletableFuture<Void> iterate(Supplier<CompletableFuture<T>> iter, Predicate<T> consumer, Executor exec) {
 		Executor fexec = (exec != null) ? exec : ForkJoinPool.commonPool();
 		CompletableFuture<Void> result = new CompletableFuture<Void>();

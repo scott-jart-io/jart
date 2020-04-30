@@ -34,9 +34,30 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
 
+/**
+ * Simple interface for asynchronously reading chunks of bytes as ByteBuffers or into pre-allocated byte[].
+ */
 public interface AsyncByteBufferReader {
+	
+	/**
+	 * Call consumer with ByteBuffers until the consumer returns false (or eof, indicated by empty ByteBuffer).
+	 * 
+	 * Data is considered consumed if the position of the ByteBuffer has moved past it.
+	 * 
+	 * The Boolean parameter passed to consumer indicates whether the consumer must consume the ByteBuffer (and any data)s synchronously.
+	 * 
+	 * @param consumer the consumer that consumes data
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> read(BiPredicate<ByteBuffer, Boolean> consumer);
 	
+	/**
+	 * As read(BiPredicate<ByteBuffer, Boolean> consumer) but will provide no more than len bytes before completing.
+	 *
+	 * @param consumer the consumer
+	 * @param len maximum number of bytes to provide to the consumer
+	 * @return the completable future indicating how many total bytes were consumed
+	 */
 	public default CompletableFuture<Long> read(BiPredicate<ByteBuffer, Boolean> consumer, long len) {
 		long[] total = new long[1];
 		
@@ -58,6 +79,14 @@ public interface AsyncByteBufferReader {
 		}).thenApply((Void dummy)->total[0]);
 	}
 	
+	/**
+	 * Read data into an existing byte[].
+	 *
+	 * @param b the destination
+	 * @param off the offset in b to start reading
+	 * @param len the maximum number of bytes to read
+	 * @return the completable future indicating how many byts were read
+	 */
 	public default CompletableFuture<Integer> read(byte[] b, int off, int len) {
 		int[] size = new int[1];
 		
@@ -72,10 +101,27 @@ public interface AsyncByteBufferReader {
 		}, len).thenApply((Long total)->(int)(long)total);
 	}
 	
+	/**
+	 * Attempt to read into a byte[] similar to readFully in other interfaces.
+	 *
+	 * @param b the destination
+	 * @return the completable future indicating the number of bytes read
+	 */
 	public default CompletableFuture<Integer> read(byte[] b) {
 		return read(b, 0, b.length);
 	}
 	
+	/**
+	 * As read(byte[] b, int off, int len) but don't read "past" a byte w/ value of term.
+	 *
+	 * Will read the terminating byte but no bytes subsequent.
+	 * 
+	 * @param b the destination
+	 * @param off the offset into b
+	 * @param len the maximum number of bytes to read
+	 * @param term a terminating byte
+	 * @return the completable future indicating the number of bytes read
+	 */
 	public default CompletableFuture<Integer> read(byte[] b, int off, int len, byte term) {
 		int[] size = new int[1];
 		
@@ -94,10 +140,23 @@ public interface AsyncByteBufferReader {
 		}, len).thenApply((Long total)->(int)(long)total);
 	}
 	
+	/**
+	 * As read(byte[] b) but with a terminating byte like read(byte[] b, int off, int len, byte term).
+	 *
+	 * @param b the destination
+	 * @param term the terminating byte
+	 * @return the completable future indicating number of bytes read
+	 */
 	public default CompletableFuture<Integer> read(byte[] b, byte term) {
 		return read(b, 0, b.length, term);
 	}
 	
+	/**
+	 * Read into an existing ByteBuffer.
+	 *
+	 * @param dst the destination
+	 * @return the completable future indicating completion
+	 */
 	public default CompletableFuture<Void> read(ByteBuffer dst) {
 		return read((ByteBuffer buf, Boolean needsCopy)->{
 			if(buf == null)

@@ -35,27 +35,109 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Simple interface to write ByteBuffers and bytes[]s.
+ */
 public interface AsyncByteWriter {
+	
+	/**
+	 * Asyncronous write.
+	 *
+	 * @param buf the buf
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> write(ByteBuffer buf);
+	
+	/**
+	 * Attempt synchronous write.
+	 *
+	 * @param buf the buf
+	 * @return true, if successful
+	 */
 	public boolean tryWrite(ByteBuffer buf);
+	
+	/**
+	 * Asynchronous write of byte[] region.
+	 *
+	 * @param bytes the bytes
+	 * @param offs the offs
+	 * @param len the len
+	 * @return the completable future
+	 */
 	public CompletableFuture<Void> write(byte[] bytes, int offs, int len);
+	
+	/**
+	 * Attempt synchronous write of byte[] region.
+	 *
+	 * @param bytes the bytes
+	 * @param offs the offs
+	 * @param len the len
+	 * @return true, if successful
+	 */
 	public boolean tryWrite(byte[] bytes, int offs, int len);
+	
+	/**
+	 * Asynchronously write an entire byte[].
+	 *
+	 * @param bytes the bytes
+	 * @return the completable future
+	 */
 	public default CompletableFuture<Void> write(byte[] bytes) {
 		return write(bytes, 0, bytes.length);
 	}
+	
+	/**
+	 * Attempt to synchronously write an entire byte[].
+	 *
+	 * @param bytes the bytes
+	 * @return true, if successful
+	 */
 	public default boolean tryWrite(byte[] bytes) {
 		return tryWrite(bytes, 0, bytes.length);
 	}
+	
+	/**
+	 * Asynchronously write a string using the given Charset.
+	 *
+	 * @param str the string
+	 * @param charset the charset
+	 * @return the completable future
+	 */
 	public default CompletableFuture<Void> write(String str, Charset charset) {
 		return write(str.getBytes(charset));
 	}
-	public default boolean tryWrite(String str, Charset charset) {
-		return tryWrite(str.getBytes(charset));
+	
+	/**
+	 * Attempt to synchronously write a string using the given Charset.
+	 *
+	 * @param str the str
+	 * @param charset the charset
+	 * @return null on success, byte[] representing str on failure (to pass to the more efficient
+	 * write(byte[] bytes) instead of having to encode the string again w/ write(String str, Charset charset))
+	 */
+	public default byte[] tryWrite(String str, Charset charset) {
+		byte[] bytes = str.getBytes(charset);
+		
+		return tryWrite(bytes) ? null : bytes;
 	}
+	
+	/**
+	 * As write(String str, Charset charset) with utf8 encoding.
+	 *
+	 * @param str the str
+	 * @return the completable future
+	 */
 	public default CompletableFuture<Void> write(String str) {
 		return write(str, StandardCharsets.UTF_8);
 	}
-	public default boolean tryWrite(String str) {
+	
+	/**
+	 * As tryWrite(String str, Charset charset) with utf8 encoding.
+	 *
+	 * @param str the str
+	 * @return true, if successful
+	 */
+	public default byte[] tryWrite(String str) {
 		return tryWrite(str, StandardCharsets.UTF_8);
 	}
 }

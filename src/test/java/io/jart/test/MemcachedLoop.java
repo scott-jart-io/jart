@@ -46,38 +46,73 @@ import io.jart.net.TcpOutgoing;
 import io.jart.util.ByteChunker;
 import io.jart.util.EventQueue;
 
+/**
+ * Async memcached implementation based on TcpLoop (which is lower leven than TcpConnection).
+ */
 // sync memcached implementation
 public class MemcachedLoop extends TcpLoopCubic {
 	private final Queue<ByteChunker> sendQ = new ConcurrentLinkedQueue<ByteChunker>();
 	private final Memcached.StateMachineSession sess;
 	
+	/**
+	 * Instantiates a new memcached loop.
+	 *
+	 * @param map key value store
+	 * @param tcpContext the tcp context
+	 * @param mss the tcp mss
+	 * @param eventQueue the event queue to use for tcp bookkeeping
+	 * @param startSeqNum the starting sequence num
+	 * @param exec the Executor for tcp work
+	 */
 	public MemcachedLoop(Map<Key, Value> map, TcpContext tcpContext, int mss, EventQueue eventQueue, int startSeqNum, Executor exec) {
 		super(tcpContext, mss, eventQueue, startSeqNum, exec);
 		try {
+			// instatiate the StateMachineSession
 			this.sess = new Memcached.StateMachineSession(map, sendQ);
 		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
+	/**
+	 * Creates the TcpOutgoing to handle sending packets.
+	 *
+	 * @param pipe the pipe
+	 * @param winSize the win size
+	 * @param seqNum the seq num
+	 * @return the TcpOutgoing
+	 */
 	protected TcpOutgoing createTcpOut(AsyncPipe<Object> pipe, int winSize, long seqNum) {
 		return new TcpOutgoing(eventQueue, pipe, mss, winSize, seqNum, sendQ);
 	}
 
+	/**
+	 * Kick -- keep our watchdog happy.
+	 */
 	private void kick() {
 		eventQueue.update(exitMsg, System.nanoTime()/1000 + 15*1000*1000);		
 	}
 	
 	private boolean done;
 	
+	/**
+	 * Handle received data / acks / fins / etc.
+	 *
+	 * @param src incoming data 
+	 * @param acked the number bytes acked by peer
+	 * @param fin is does this packet have fin set?
+	 */
 	@Override
 	protected void recv(ByteBuffer src, int acked, boolean fin) {
 		if(!done) {
+			// immediately restore the window since we handle data synchronously
 			winSize.addAndGet(src.remaining());
+			// hand the data off to the session
 			done = !sess.recv(src) | fin;
 			kick();
 		}
+		// if we're trying to finish and we haven't sent a fin yet and our output queue is empty...
 		if(done && !tcpOut().finOut() && tcpOut().isEmpty())
-			tcpOut().queueFin();
+			tcpOut().queueFin(); // queue a fin to send
 	}
 }
