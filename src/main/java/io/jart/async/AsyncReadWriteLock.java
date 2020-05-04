@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Asynchronous read/write lock.
- * Allows up to 1<<21 read locks, readers, writers waiting to fit state in a 64bit long
+ * Allows up to 2^21 read locks, readers, writers waiting to fit state in a 64bit long
  */
 public class AsyncReadWriteLock {
 	private final Queue<CompletableFuture<Void>> readWaiters = new ConcurrentLinkedQueue<CompletableFuture<Void>>();

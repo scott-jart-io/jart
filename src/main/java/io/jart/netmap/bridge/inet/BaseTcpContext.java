@@ -76,7 +76,7 @@ public abstract class BaseTcpContext implements TcpContext {
 		/**
 		 * Creates a new pipe for message passing.
 		 *
-		 * @return the async pipe< object>
+		 * @return the async pipe
 		 */
 		public AsyncPipe<Object> createPipe();
 		
@@ -153,7 +153,7 @@ public abstract class BaseTcpContext implements TcpContext {
 		/**
 		 * Creates a new pipe for message passing.
 		 *
-		 * @return the async pipe< object>
+		 * @return the async pipe
 		 */
 		@Override
 		public AsyncPipe<Object> createPipe() {
@@ -222,7 +222,7 @@ public abstract class BaseTcpContext implements TcpContext {
 		/**
 		 * Creates a new pipe for message passing.
 		 *
-		 * @return the async pipe< object>
+		 * @return the async pipe
 		 */
 		@Override
 		public AsyncPipe<Object> createPipe() {

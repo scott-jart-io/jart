@@ -125,7 +125,6 @@ public class Inet {
 	 *
 	 * @param b the ByteBuffer
 	 * @param pos the pos
-	 * @param size the size
 	 * @return the checksum
 	 */
 	public static short calcCSum(ByteBuffer b, int pos) {

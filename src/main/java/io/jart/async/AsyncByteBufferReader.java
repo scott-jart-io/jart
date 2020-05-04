@@ -52,7 +52,7 @@ public interface AsyncByteBufferReader {
 	public CompletableFuture<Void> read(BiPredicate<ByteBuffer, Boolean> consumer);
 	
 	/**
-	 * As read(BiPredicate<ByteBuffer, Boolean> consumer) but will provide no more than len bytes before completing.
+	 * As read(BiPredicate&lt;ByteBuffer, Boolean%gt; consumer) but will provide no more than len bytes before completing.
 	 *
 	 * @param consumer the consumer
 	 * @param len maximum number of bytes to provide to the consumer

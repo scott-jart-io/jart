@@ -102,7 +102,7 @@ public class InetBufferSwapTask extends BufferSwapTask {
 		 * Convert an IpConnListener to proper ipv4 function.
 		 *
 		 * @param listener the listener
-		 * @return the to int function<? super ip packet>
+		 * @return the swap code function
 		 */
 		public ToIntFunction<? super IpPacket> ip4TcpListener(IpConnListener listener) {
 			return InetBufferSwapTask.this.ip4TcpListener(listener);

@@ -323,7 +323,6 @@ public class AsyncReadThroughFileCache {
 	 * Instantiates a new cache w/ default max open channels, chunk size.
 	 *
 	 * @param size the maximum number of bytes to cache
-	 * @param chunkSize the data chunk size
 	 * @param exec the Executor to run on (null means ForkJoinPool commonPool)
 	 */
 	public AsyncReadThroughFileCache(long size, ExecutorService exec) {
