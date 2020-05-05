@@ -30,6 +30,13 @@
 
 package io.jart.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Collections;
+
 /**
  * Misc stuff.
  */
@@ -37,4 +44,26 @@ public class Misc {
 	private Misc() {} // hide constructor
 	
 	public final static boolean IS_FREEBSD = System.getProperty("os.name").toLowerCase().contains("freebsd");
+
+	/**
+	 * Guess ipv4 addr given a device.
+	 *
+	 * @param devName the device name (i.e., em2)
+	 * @return 32bit ipv4 address
+	 * @throws IOException Signals that an I/O exception has occurred.
+	 */
+	public static int guessIp4Addr(String devName) throws IOException {
+		// TODO not very rigorous
+		for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+			if (ni.getName().equals(devName)) {
+				for (InetAddress ia : Collections.list(ni.getInetAddresses())) {
+					byte[] addr = ia.getAddress();
+
+					if (addr.length == 4)
+						return (new DataInputStream(new ByteArrayInputStream(addr))).readInt();
+				}
+			}
+		}
+		return -1;
+	}
 }

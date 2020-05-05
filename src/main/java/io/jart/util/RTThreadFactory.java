@@ -31,6 +31,7 @@
 package io.jart.util;
 
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -77,20 +78,52 @@ public class RTThreadFactory implements ThreadFactory {
 		}
 	}
 	
+	public static boolean setCpuAffinity(int cpu) {
+		if(Misc.IS_FREEBSD) {
+			NativeBitSet mask = new NativeBitSet(256);
+			
+			mask.set(cpu % Math.min(256, Runtime.getRuntime().availableProcessors()));
+			
+			try {
+				Memory buf = new Memory(8);
+
+				CLibrary.INSTANCE.thr_self(buf);
+
+				long lwpid = buf.getLong(0);
+
+				CLibrary.INSTANCE.cpuset_setaffinity(CLibrary.CPU_LEVEL_WHICH, CLibrary.CPU_WHICH_TID, lwpid, mask.buf.capacity(), mask.ptr);
+				return true;
+			}
+			catch(Throwable throwable) {
+				logger.warn("error trying to set cpu affinity", throwable);
+			}
+		}
+		return false;
+	}
+	
 	/**
 	 * Wrap a Runnable such that run() will first try to elevate to real time priority before calling wrapped Runnable run.
 	 *
 	 * @param r the r
+	 * @param cpuAffinity the cpu to attend to set thread affinity to (or -1 for none)
 	 * @return the runnable
 	 */
-	public static Runnable wrap(Runnable r) {
+	public static Runnable wrap(Runnable r, int cpuAffinity) {
 		return new Runnable() {
 			@Override
 			public void run() {
 				setRTPrio();
+				if(cpuAffinity >= 0)
+					setCpuAffinity(cpuAffinity);
 				r.run();
 			}			
 		};
+	}
+	
+	private AtomicInteger nextCpu;
+	
+	public RTThreadFactory(boolean cpuAffinity) {
+		nextCpu = cpuAffinity ? new AtomicInteger() : null;
 	}
 	
 	/**
@@ -101,6 +134,8 @@ public class RTThreadFactory implements ThreadFactory {
 	 */
 	@Override
 	public Thread newThread(Runnable r) {
-		return new Thread(wrap(r));
+		int cpuAffinity = (nextCpu == null) ? -1 : nextCpu.getAndIncrement();
+		
+		return new Thread(wrap(r, cpuAffinity));
 	}
 }

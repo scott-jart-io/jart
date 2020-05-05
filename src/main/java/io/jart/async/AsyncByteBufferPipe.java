@@ -73,14 +73,14 @@ public class AsyncByteBufferPipe implements AsyncByteBufferReader {
 	 */
 	public PausableExecutor executor() { return exec; }
 	
-	// write a buffer to the queue
-	// buffer is synchronously consumed
 	/**
 	 * Write.
+	 * write a buffer to the queue
+	 * buffer is synchronously consumed
+	 * write a null to signify eof
 	 *
 	 * @param src the src
 	 */
-	// write a null to signify eof
 	public void write(ByteBuffer src) {
 		// write buffer as-is
 		ByteBufferRef ref = new ByteBufferRef();

@@ -30,6 +30,8 @@
 
 package io.jart.util;
 
+import java.util.function.Supplier;
+
 /**
  * Simple, effective load balancing extension to WorkerThread.
  * after exhausting its own queue, helps a peer --
@@ -91,5 +93,36 @@ public class HelpingWorkerThread extends WorkerThread {
 	public void setPeer(HelpingWorkerThread peer) {
 		peer.helper = this;
 		this.peer = peer;
+	}
+	
+	/**
+	 * Create a team of HelperWorkerThreads.
+	 *
+	 * @param threadCount the size of the team
+	 * @param threadSupplier the Supplier for new HelpingWorkerThreads
+	 * @return array of HelpingWorkerThreads
+	 */
+	public static HelpingWorkerThread[] createTeam(int threadCount, Supplier<HelpingWorkerThread> threadSupplier) {
+		HelpingWorkerThread[] workerThreads = new HelpingWorkerThread[threadCount];
+		
+		if(threadCount > 0)
+			workerThreads[0] = threadSupplier.get();
+		for(int i = 1; i < threadCount; i++)
+			(workerThreads[i] = threadSupplier.get()).setPeer(workerThreads[i-1]);
+		if(threadCount > 1)
+			workerThreads[0].setPeer(workerThreads[threadCount - 1]);
+		for(int i = 0; i < threadCount; i++)
+			workerThreads[i].start();
+		return workerThreads;
+	}
+	
+	/**
+	 * Create a team of HelperWorkerThreads.
+	 *
+	 * @param threadCount the size of the team
+	 * @return array of HelpingWorkerThreads
+	 */
+	public static HelpingWorkerThread[] createTeam(int threadCount) {
+		return createTeam(threadCount, HelpingWorkerThread::new);
 	}
 }

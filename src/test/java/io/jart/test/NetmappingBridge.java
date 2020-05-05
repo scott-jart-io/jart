@@ -30,25 +30,17 @@
 
 package io.jart.test;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
 import java.security.SecureRandom;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntSupplier;
 
 import org.apache.log4j.Logger;
 
 import com.ea.async.Async;
-import com.sun.jna.Memory;
 
 import io.jart.async.AsyncReadThroughFileCache;
 import io.jart.async.AsyncRunnable;
@@ -57,11 +49,9 @@ import io.jart.memcached.Memcached.Value;
 import io.jart.net.Ip4AddrAndPort;
 import io.jart.net.TcpContext;
 import io.jart.netmap.bridge.inet.SimpleInetBridgeTask;
-import io.jart.util.CLibrary;
 import io.jart.util.FixedSizeMap;
 import io.jart.util.HelpingWorkerThread;
 import io.jart.util.Misc;
-import io.jart.util.NativeBitSet;
 import io.jart.util.RTThreadFactory;
 import io.jart.util.RoundRobinExecutor;
 
@@ -73,41 +63,14 @@ public class NetmappingBridge {
 	static {
 		Async.init();
 	}
-
-	/**
-	 * Guess ipv4 addr given a device.
-	 *
-	 * @param devName the device name (i.e., /dev/em2)
-	 * @return 32bit ipv4 address
-	 * @throws IOException Signals that an I/O exception has occurred.
-	 */
-	private static int guessIp4Addr(String devName) throws IOException {
-		// TODO not very rigorous
-		for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-			if (ni.getName().equals(devName)) {
-				for (InetAddress ia : Collections.list(ni.getInetAddresses())) {
-					byte[] addr = ia.getAddress();
-
-					if (addr.length == 4) {
-						int result = (new DataInputStream(new ByteArrayInputStream(addr))).readInt();
-
-						System.err.println(ia.getHostAddress() + " / 0x" + Integer.toHexString(result));
-						return result;
-					}
-				}
-			}
-		}
-		return -1;
-	}
-
+	
 	private static final Logger logger = Logger.getLogger(NetmappingBridge.class);
 
 	/**
 	 * HelpingWorkerThread subclass that attempts to run in real time priority and w/ cpu affinity.
 	 */
 	private static class NMWorkerThread extends HelpingWorkerThread {
-		
-		private static final AtomicInteger cpu = new AtomicInteger();
+		private static final AtomicInteger nextCpu = new AtomicInteger();
 		
 		/**
 		 * Attempts to move to real time priority, enabled cpu affinity, and then class super.
@@ -115,27 +78,11 @@ public class NetmappingBridge {
 		@Override
 		public void run() {
 			setName(RTThreadFactory.setRTPrio() ?  "NM RT" : "NM");
-			if(Misc.IS_FREEBSD) {
-				int n = cpu.getAndIncrement();
-				NativeBitSet mask = new NativeBitSet(256);
-				
-				mask.set(n);
-				
-				try {
-					Memory buf = new Memory(8);
-
-					CLibrary.INSTANCE.thr_self(buf);
-
-					long lwpid = buf.getLong(0);
-
-					CLibrary.INSTANCE.cpuset_setaffinity(CLibrary.CPU_LEVEL_WHICH, CLibrary.CPU_WHICH_TID, lwpid, mask.buf.capacity(), mask.ptr);
-
-					setName(getName() + " CPU " + n);
-				}
-				catch(Throwable throwable) {
-					logger.warn("error trying to set cpu affinity", throwable);
-				}
-			}
+			
+			int cpu = nextCpu.getAndIncrement();
+			
+			if(RTThreadFactory.setCpuAffinity(cpu))
+				setName(getName() + " CPU " + cpu);
 			super.run();
 		}
 	}
@@ -153,16 +100,7 @@ public class NetmappingBridge {
 			int threadCount = Integer.parseInt(args[2]); // arg 2: thread count
 			
 			// create threadCount worker threads
-			HelpingWorkerThread[] workerThreads = new HelpingWorkerThread[threadCount];
-			
-			workerThreads[0] = new NMWorkerThread();
-			for(int i = 1; i < threadCount; i++)
-				(workerThreads[i] = new NMWorkerThread()).setPeer(workerThreads[i-1]);
-			if(threadCount > 1)
-				workerThreads[0].setPeer(workerThreads[threadCount - 1]);
-			for(int i = 0; i < threadCount; i++)
-				workerThreads[i].start();
-			
+			HelpingWorkerThread[] workerThreads = HelpingWorkerThread.createTeam(threadCount, NMWorkerThread::new);			
 			// wrap worker threads in an Executor
 			Executor exec = new RoundRobinExecutor(workerThreads);
 			SimpleInetBridgeTask sibt = new SimpleInetBridgeTask(devName, exec);
@@ -171,11 +109,9 @@ public class NetmappingBridge {
 			CompletableFuture<Object> sibtCtxOrExit = CompletableFuture.anyOf(sibtCf, sibt.context);
 			// cast to SimpleInetBridgeTask.Context (or fail if it was anything else)
 			SimpleInetBridgeTask.Context sibtContext = (SimpleInetBridgeTask.Context)Async.await(sibtCtxOrExit);
-			
-			int ip4Addr = guessIp4Addr(devName);
+			int ip4Addr = Misc.guessIp4Addr(devName);
 			Executor connExec = null; // default
 			SecureRandom secRand = new SecureRandom();
-			IntSupplier seqNumSupplier = () -> secRand.nextInt(); // generate random ints for initial seqNums
 			// create an underlying cache for toy memcached
 			Map<Key, Value> mcCache = new FixedSizeMap<Key, Value>(1024 * 1024, 512 * 1024 * 1024, (Key key, Value val)->{
 				return (long)val.efkvp.length;	
@@ -185,12 +121,12 @@ public class NetmappingBridge {
 
 			// start memcached
 			sibtContext.ip4TcpListen(new Ip4AddrAndPort(ip4Addr, 11211), (TcpContext tcpContext)->{
-				return new MemcachedLoop(mcCache, tcpContext, mss, sibtContext.eventQueue, seqNumSupplier.getAsInt(), exec);
+				return new MemcachedLoop(mcCache, tcpContext, mss, sibtContext.eventQueue, secRand.nextInt(), exec);
 			});
 
 			// start httpd
 			sibtContext.ip4TcpListen(new Ip4AddrAndPort(ip4Addr, 80), (TcpContext tcpContext)->{
-				return new HTTPDTestConnection(tcpContext, mss, sibtContext.eventQueue, sibtContext.msgRelay, seqNumSupplier.getAsInt(), exec, fc, connExec);
+				return new HTTPDTestConnection(tcpContext, mss, sibtContext.eventQueue, sibtContext.msgRelay, secRand.nextInt(), exec, fc, connExec);
 			});
 			
 			// we're done when the SimpleInetBridgeTask is done

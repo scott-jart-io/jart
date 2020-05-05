@@ -243,12 +243,15 @@ public abstract class TcpConnection extends TcpLoopCubic {
 		writerBuffer.written(acked); // tell writerBuffer we've fully written acked number of bytes
 		if(!finSeen) {
 			// if we've not already seen a fin already, pass on received bytes to the reader
-			abbr.write(src); // will resume pexec
+			if(src.hasRemaining())
+				abbr.write(src); // will resume pexec
+			else if(!fin)
+				pexec.resumeSync();
 			if(fin) {
 				// if this packet represents a fin, remember it
 				finSeen = true;
 				// and close the reader
-				abbr.write(null);
+				abbr.write(null); // will resume pexec
 			}
 		}
 		else
