@@ -33,6 +33,7 @@ package io.jart.test;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -57,9 +58,10 @@ import io.jart.util.EventQueue;
  * as well as POSTs where it hashes POST-ed data and responds with the hash value.
  */
 public class HTTPDTestConnection extends HTTPDConnection {
+	private static final byte[] continue100 = "HTTP/1.1 100 continue\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+	
 	private final AsyncReadThroughFileCache fc;
 	private final String root;
-	
 	
 	/**
 	 * Instantiates a new HTTPD test connection.
@@ -129,10 +131,10 @@ public class HTTPDTestConnection extends HTTPDConnection {
 		Long size = null;
 		
 		for(Header header: headers) {
-			if(header.name.equals("content-length")) {
+			if(header.name.equals("content-length"))
 				size = Long.valueOf(header.value);
-				break;
-			}
+			else if(header.name.equals("expect") && header.value.equals("100-continue"))
+				Async.await(getWriter().write(continue100));
 		}
 		
 		AsynchronousFileChannel afc = AsynchronousFileChannel.open(dst, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
@@ -189,7 +191,7 @@ public class HTTPDTestConnection extends HTTPDConnection {
 			if(header.name.equals("content-length"))
 				size = Long.valueOf(header.value);
 			else if(header.name.equals("expect") && header.value.equals("100-continue"))
-				Async.await(sendResponseHeader(100, "continue", null));
+				Async.await(getWriter().write(continue100));
 		}
 		
 		byte[] mdBuf;
