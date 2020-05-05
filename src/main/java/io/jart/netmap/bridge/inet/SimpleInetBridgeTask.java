@@ -87,16 +87,19 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 	public class Context {
 		public final MsgRelay msgRelay;
 		public final EventQueue eventQueue;
+		public final Executor exec;
 		
 		/**
 		 * Instantiates a new context.
 		 *
 		 * @param msgRelay the msg relay
 		 * @param eventQueue the event queue
+		 * @param exec the Executor
 		 */
-		public Context(MsgRelay msgRelay, EventQueue eventQueue) {
+		public Context(MsgRelay msgRelay, EventQueue eventQueue, Executor exec) {
 			this.msgRelay = msgRelay;
 			this.eventQueue = eventQueue;
+			this.exec = exec;
 		}
 		
 		/**
@@ -360,13 +363,10 @@ public class SimpleInetBridgeTask implements AsyncRunnable {
 			}
 			*/
 			
-			context.complete(new Context(msgRelay, eventQueue));
+			context.complete(new Context(msgRelay, eventQueue, exec));
 			Async.await(btComplete);
-		} catch (Exception e) {
-			CompletableFuture<Void> cf = new CompletableFuture<Void>();
-
-			cf.completeExceptionally(e);
-			return cf;
+		} catch (Throwable th) {
+			return CompletableFuture.failedFuture(th);
 		}
 		finally {
 			ibsContexts = null;

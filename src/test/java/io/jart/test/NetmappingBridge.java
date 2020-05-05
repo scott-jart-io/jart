@@ -38,8 +38,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.log4j.Logger;
-
 import com.ea.async.Async;
 
 import io.jart.async.AsyncReadThroughFileCache;
@@ -64,8 +62,6 @@ public class NetmappingBridge {
 		Async.init();
 	}
 	
-	private static final Logger logger = Logger.getLogger(NetmappingBridge.class);
-
 	/**
 	 * HelpingWorkerThread subclass that attempts to run in real time priority and w/ cpu affinity.
 	 */
@@ -132,11 +128,7 @@ public class NetmappingBridge {
 			// we're done when the SimpleInetBridgeTask is done
 			return sibtCf;
 		} catch (Throwable th) {
-			CompletableFuture<Void> cf = new CompletableFuture<Void>();
-			
-			logger.error("main threw exception", th);
-			cf.completeExceptionally(th);
-			return cf;
+			return CompletableFuture.failedFuture(th);
 		}
 	}
 	

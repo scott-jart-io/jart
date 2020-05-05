@@ -56,7 +56,7 @@ public interface TcpContext {
 	/**
 	 * Converts applicable received messages to ByteBuffers representing a tcp packet.
 	 *
-	 * @param obj the recieved obj that MAY represent a received packet
+	 * @param obj the received obj that MAY represent a received packet
 	 * @return the byte buffer or null if obj doesn't represent a received packet
 	 */
 	public ByteBuffer rx(Object obj);
