@@ -5,7 +5,47 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.jart</groupId>
 	<artifactId>jart</artifactId>
-	<version>0.0.3-SNAPSHOT</version>
+	<version>0.0.5-SNAPSHOT</version>
+	<name>JART</name>
+	<description>
+	JARTs are Java-based Asynchronous Real Time sockets.
+
+	JART uses JNA to build a pure Java TCP/IP stack upon Netmap. It is implemented in imperative style (no TCP state machine) using asynchronous programming with the help of ea-async.
+
+	JART runs on both Linux (with the proper Netmap kernel module) and FreeBSD with Netmap enabled. FreeBSD 12.1+ has Netmap in the kernel by default so it works "out of the box".
+
+	While JART has proven fairly robust in limited testing, it is still a work-in-progress and may not be suitable for production use. Pull requests welcome!
+    </description>
+	<url>https://github.com/scott-jart-io/jart</url>
+
+	<licenses>
+		<license>
+			<name>BSD 3-Clause License</name>
+			<url>https://raw.githubusercontent.com/scott-jart-io/jart/master/LICENSE</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<id>scott-jart-io</id>
+			<name>Scott Petersen</name>
+			<email>scott.jart.io@gmail.com</email>
+			<organization>Scott Petersen</organization>
+			<organizationUrl>https://github.com/scott-jart-io</organizationUrl>
+			<roles>
+				<role>developer</role>
+			</roles>
+			<timezone>America/Los_Angeles</timezone>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git://github.com/scott-jart-io/jart.git</connection>
+		<developerConnection>scm:git:git@github.com:scott-jart-io/jart.git</developerConnection>
+		<url>https://github.com/scott-jart-io/jart</url>
+	</scm>
+
 	<distributionManagement>
 		<snapshotRepository>
 			<id>ossrh</id>
@@ -22,14 +62,14 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.0</version>
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
+					<source>9</source>
+					<target>9</target>
 				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>2.3</version>
+				<version>3.2.1</version>
 				<executions>
 					<!-- Run shade goal on package phase -->
 					<execution>
@@ -38,12 +78,7 @@
 							<goal>shade</goal>
 						</goals>
 						<configuration>
-							<transformers>
-								<!-- add Main-Class to manifest file -->
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-								</transformer>
-							</transformers>
+							<minimizeJar>true</minimizeJar>
 						</configuration>
 					</execution>
 				</executions>
@@ -57,6 +92,7 @@
 					<serverId>ossrh</serverId>
 					<nexusUrl>https://oss.sonatype.org/</nexusUrl>
 					<autoReleaseAfterClose>true</autoReleaseAfterClose>
+					<stagingProgressTimeoutMinutes>15</stagingProgressTimeoutMinutes>
 				</configuration>
 			</plugin>
 			<plugin>
