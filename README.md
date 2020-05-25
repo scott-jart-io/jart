@@ -12,6 +12,19 @@ JART runs on both Linux (with the proper Netmap kernel module) and FreeBSD with 
 While JART has proven fairly robust in limited testing, it is still a work-in-progress and may not be suitable for production use. Pull requests welcome!
 
 ----
+## Maven
+
+[JART](https://search.maven.org/artifact/io.jart/jart/0.0.4/jar)
+
+```
+<dependency>
+  <groupId>io.jart</groupId>
+  <artifactId>jart</artifactId>
+  <version>0.0.4</version>
+</dependency>
+```
+
+----
 ## Why JART?
 
 - pure java -- no JNI required
@@ -26,7 +39,7 @@ While JART has proven fairly robust in limited testing, it is still a work-in-pr
 ----
 ## Super quick start
 
-[docker-jart-test](https://github.com/scott-jart-io/docker-jart-test) lets you run a simple echo server written with jart in a Docker container with no changes to your local system.
+[docker-jart-test](https://github.com/scott-jart-io/docker-jart-test) lets you run a simple echo server written with JART in a Docker container with no changes to your local system.
 
 ----
 ## Sample app quick start
@@ -41,6 +54,7 @@ FreeBSD (12.1+; or earlier, built with recent Netmap support):
 
 Linux: (assuming kernel module is loaded and device's mode bits are properly set)
 
+    sudo chmod 0666 /dev/netmap # if not running as root
     sudo ethtool -K eth0 tx off rx off gso off tso off gro off lro off
 
 * run with network and threading parameters:
