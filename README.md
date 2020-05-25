@@ -24,6 +24,11 @@ While JART has proven fairly robust in limited testing, it is still a work-in-pr
 - abstract writes -- concrete output generation can be deferred until packet composition time
 
 ----
+## Super quick start
+
+[docker-jart-test](https://github.com/scott-jart-io/docker-jart-test) lets you run a simple echo server written with jart in a Docker container with no changes to your local system.
+
+----
 ## Sample app quick start
 
 * build with Maven (or in Eclipse using the Maven plug-in) using NetmappingBridge as entry point
