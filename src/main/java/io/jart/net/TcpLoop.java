@@ -273,7 +273,7 @@ public abstract class TcpLoop implements AsyncRunnable {
 	}
 
 	/**
-	 * Run to loop.
+	 * Run tcp loop.
 	 *
 	 * @return the completable future completed on indicating connection close (or timeout)
 	 */
@@ -283,7 +283,7 @@ public abstract class TcpLoop implements AsyncRunnable {
 		{
 			Object msg = tcpContext.getPipe().poll();
 
-			if(msg != null) { // server
+			if(msg != null) { // server -- we're accepting a connection
 				// handle syn / send syn-ack
 				ByteBuffer pktBuf = tcpContext.rx(msg);
 
@@ -336,7 +336,7 @@ public abstract class TcpLoop implements AsyncRunnable {
 					return AsyncLoop.cfVoid;
 				}
 			}
-			else { // client
+			else { // client -- we're connecting
 				init();
 
 				try {
@@ -376,94 +376,12 @@ public abstract class TcpLoop implements AsyncRunnable {
 				do {
 					ByteBuffer pktBuf = tcpContext.rx(msg);
 
-					if(pktBuf != null) { // received a packet
-						try {
-							boolean wasFinAcked = tcpOut.finAcked();
-							short peerDocb = TcpPkt.getDataOffsControlBits(pktBuf);
-							short synFin = (short) (peerDocb & (TcpPkt.SYN | TcpPkt.FIN));						
-							long peerSeqNum = TcpPkt.getSeqNum(pktBuf);
-							int dseq = ((synFin & TcpPkt.SYN) != 0) ? 0 : (int)peerSeqNum - (int)ackNum;
-							int headerSize = TcpPkt.headerSize(pktBuf);
-							int size = pktBuf.remaining() - headerSize;
-
-							if(dseq <= 0 && -dseq <= size) { // next packet
-								size += dseq; // account for overlap
-
-								int acked = (size <= winSize.get()) ? // ignore anything that would blow out our recv window
-										tcpOut.update(TcpPkt.getAckNum(pktBuf), TcpPkt.getWinSize(pktBuf) << peerWinScale) : -1;
-
-								if(acked >= 0) { // for us
-									// check for validity
-									if((peerDocb & requiredCb) != requiredCb || (peerDocb & invalidCb) != 0)
-										throw new IllegalStateException("unexpected control bits: " + Integer.toHexString(peerDocb));
-
-									// call recv if anything meaningful happened
-									if(((size > 0) || (acked > 0) || (synFin != 0) ||
-											(!wasFinAcked && tcpOut.finAcked()))) {
-										if((synFin & TcpPkt.SYN) != 0) { // syn/ack
-											// need to adopt seqnum from a syn/ack
-											ackNum = peerSeqNum;
-											handleSyn(pktBuf);
-										}
-
-										// don't want to see these twice
-										invalidCb |= synFin;
-										requiredCb &= ~synFin;
-										winSize.addAndGet(-size);
-										ackNum = 0xffffffffL & (ackNum + size + Math.min(1, synFin));
-
-										// skip header
-										pktBuf.position(pktBuf.position() + headerSize - dseq);
-										recv(pktBuf, acked, (synFin & TcpPkt.FIN) != 0);
-									}
-								}
-							}
-							else if(dseq > 0) // future packet -- packet lost?
-								explicitAck = true; // provoke an explicit ack
-						}
-						finally {
-							finishRx(msg);
-						}					
-					}
-					else if(msg instanceof TcpOutgoing.Segment) { // segment needs sending
-						TcpOutgoing.Segment segment = (TcpOutgoing.Segment)msg;
-
-						if(tcpOut.isValid(segment)) { // discard expired segments
-							txQ.offer(segment);
-							if(segment.isRetry()) // no buffer pre-request for retries so request now
-								requestTxBuffer(tx, pipe);
-						}
-					}
-					else if(msg instanceof TxContext.Buffer) { // a tx buffer showed up
-						TxContext.Buffer buffer = (TxContext.Buffer)msg;
-
-						try {
-							// try to find a segment that still needs sending
-							for(;;) {
-								TcpOutgoing.Segment segment = txQ.poll();
-								
-								if(segment == null) { // no segments need sending!
-									tx.abort(buffer);
-									break;
-								}
-								if(tcpOut.readyTx(tx, segment)) {
-									tx.setAckNum(ackNum);
-									tx.setWinSize(scaledWinSize());
-
-									ByteBuffer dst = tx.use(buffer);
-									short controlBits = tcpOut.putToTx(dst, tx, segment);
-
-									tx.finish(controlBits, buffer);
-									explicitAck = false;
-									break;
-								}
-							}
-						}
-						catch(Throwable th) {
-							tx.abort(buffer);
-							throw th;
-						}
-					}
+					if(pktBuf != null) // received a packet
+						handlePacket(msg, pktBuf);					
+					else if(msg instanceof TcpOutgoing.Segment) // segment needs sending
+						handleSegment(pipe, tx, (TcpOutgoing.Segment)msg);
+					else if(msg instanceof TxContext.Buffer) // a tx buffer showed up
+						handleBuffer(tx, (TxContext.Buffer)msg);
 					else if(msg == exitMsg)
 						throw thExit;
 					else if(!handleMsg(msg))
@@ -481,5 +399,111 @@ public abstract class TcpLoop implements AsyncRunnable {
 				return false;
 			}
 		}, exec);
+	}
+
+	/**
+	 * Handle a buffer from the main loop.
+	 *
+	 * @param tx the tx context
+	 * @param buffer the buffer we'll used to send a queued segment (or abort if no valid segments)
+	 */
+	protected void handleBuffer(TcpTxContext tx, TxContext.Buffer buffer) throws Throwable {
+		try {
+			// try to find a segment that still needs sending
+			for(;;) {
+				TcpOutgoing.Segment segment = txQ.poll();
+				
+				if(segment == null) { // no segments need sending!
+					tx.abort(buffer);
+					break;
+				}
+				if(tcpOut.readyTx(tx, segment)) {
+					tx.setAckNum(ackNum);
+					tx.setWinSize(scaledWinSize());
+
+					ByteBuffer dst = tx.use(buffer);
+					short controlBits = tcpOut.putToTx(dst, tx, segment);
+
+					tx.finish(controlBits, buffer);
+					explicitAck = false;
+					break;
+				}
+			}
+		}
+		catch(Throwable th) {
+			tx.abort(buffer);
+			throw th;
+		}
+	}
+
+	/**
+	 * Handle an outgoing tcp segment from the main loop.
+	 *
+	 * @param pipe the main pipe
+	 * @param tx the tx context
+	 * @param segment the outgoing segment
+	 */
+	protected void handleSegment(AsyncPipe<Object> pipe, TcpTxContext tx, TcpOutgoing.Segment segment) {
+		if(tcpOut.isValid(segment)) { // discard expired segments
+			txQ.offer(segment);
+			if(segment.isRetry()) // no buffer pre-request for retries so request now
+				requestTxBuffer(tx, pipe);
+		}
+	}
+
+	/**
+	 * Handle a packet received from the main loop.
+	 *
+	 * @param msg the message from which we got pktBuf
+	 * @param pktBuf the buffer holding the packet
+	 */
+	protected void handlePacket(Object msg, ByteBuffer pktBuf) {
+		try {
+			boolean wasFinAcked = tcpOut.finAcked();
+			short peerDocb = TcpPkt.getDataOffsControlBits(pktBuf);
+			short synFin = (short) (peerDocb & (TcpPkt.SYN | TcpPkt.FIN));						
+			long peerSeqNum = TcpPkt.getSeqNum(pktBuf);
+			int dseq = ((synFin & TcpPkt.SYN) != 0) ? 0 : (int)peerSeqNum - (int)ackNum;
+			int headerSize = TcpPkt.headerSize(pktBuf);
+			int size = pktBuf.remaining() - headerSize;
+
+			if(dseq <= 0 && -dseq <= size) { // next packet
+				size += dseq; // account for overlap
+
+				int acked = (size <= winSize.get()) ? // ignore anything that would blow out our recv window
+						tcpOut.update(TcpPkt.getAckNum(pktBuf), TcpPkt.getWinSize(pktBuf) << peerWinScale) : -1;
+
+				if(acked >= 0) { // for us
+					// check for validity
+					if((peerDocb & requiredCb) != requiredCb || (peerDocb & invalidCb) != 0)
+						throw new IllegalStateException("unexpected control bits: " + Integer.toHexString(peerDocb));
+
+					// call recv if anything meaningful happened
+					if(((size > 0) || (acked > 0) || (synFin != 0) ||
+							(!wasFinAcked && tcpOut.finAcked()))) {
+						if((synFin & TcpPkt.SYN) != 0) { // syn/ack
+							// need to adopt seqnum from a syn/ack
+							ackNum = peerSeqNum;
+							handleSyn(pktBuf);
+						}
+
+						// don't want to see these twice
+						invalidCb |= synFin;
+						requiredCb &= ~synFin;
+						winSize.addAndGet(-size);
+						ackNum = 0xffffffffL & (ackNum + size + Math.min(1, synFin));
+
+						// skip header
+						pktBuf.position(pktBuf.position() + headerSize - dseq);
+						recv(pktBuf, acked, (synFin & TcpPkt.FIN) != 0);
+					}
+				}
+			}
+			else if(dseq > 0) // future packet -- packet lost?
+				explicitAck = true; // provoke an explicit ack
+		}
+		finally {
+			finishRx(msg);
+		}
 	}
 }
