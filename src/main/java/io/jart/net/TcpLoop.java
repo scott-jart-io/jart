@@ -407,7 +407,7 @@ public abstract class TcpLoop implements AsyncRunnable {
 	 * @param tx the tx context
 	 * @param buffer the buffer we'll used to send a queued segment (or abort if no valid segments)
 	 */
-	protected void handleBuffer(TcpTxContext tx, TxContext.Buffer buffer) throws Throwable {
+	protected void handleBuffer(TcpTxContext tx, TxContext.Buffer buffer) throws Exception {
 		try {
 			// try to find a segment that still needs sending
 			for(;;) {
