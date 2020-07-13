@@ -121,6 +121,14 @@ public abstract class HTTPDConnection extends TcpConnection {
 		}
 	}
 
+	private static final int maxReqLen = 65536;
+	
+	private final byte[] reqBuf = new byte[2048]; // max line length in bytes
+	private final int[] offset = new int[1];
+	private final int[] len = new int[] { maxReqLen }; // max total req len
+	private boolean open = true;
+	private boolean keepAlive = true;
+	
 	/**
 	 * Instantiates a new HTTPD connection.
 	 *
@@ -173,11 +181,11 @@ public abstract class HTTPDConnection extends TcpConnection {
 		if(cause != null) {
 			String uuid = UUID.randomUUID().toString();
 			
-			headers = Arrays.asList("X-Cause-Id: " + uuid);
+			headers = Arrays.asList("X-Cause-Id: " + uuid, "Content-Length: 0");
 			logger.error("httpd error {" + uuid + "}", cause);
 		}
 		else
-			headers = null;
+			headers = Arrays.asList("Content-Length: 0");
 		return sendResponseHeader(error.status, error.getMessage(), headers);
 	}
 	
@@ -223,18 +231,34 @@ public abstract class HTTPDConnection extends TcpConnection {
 	 * @return the completable future
 	 */
 	@Override
-	protected CompletableFuture<Void> connectionRun() {
+	protected CompletableFuture<Void> connectionRun() {		
+		return AsyncLoop.doWhile(()->{
+			Async.await(serveOne());
+
+			if(!open || !keepAlive)
+				return AsyncLoop.cfFalse;
+			
+			offset[0] = 0;
+			len[0] = maxReqLen;
+			return AsyncLoop.cfTrue;
+		}, executor());
+	}
+	
+	private CompletableFuture<Void> serveOne() {	
 		try {
 			String verb, url;
 			Header[] headers;
 			
 			// lots of missing null checks that will result in 500 instead of better errors
 			{
-				byte[] reqBuf = new byte[2048]; // max line length in bytes
-				int[] offset = new int[1];
-				int[] len = new int[] { 65536 }; // max total req len
-				
 				String reqLine = Async.await(readLine(reqBuf, offset, len));			
+
+				// bail early if other side shutdown
+				if(reqLine == null) {
+					open = false;
+					return AsyncLoop.cfVoid;
+				}
+
 				String[] reqParts = reqLine.split("\\s+");
 
 				if(reqParts.length != 3)
@@ -249,6 +273,10 @@ public abstract class HTTPDConnection extends TcpConnection {
 					
 					String headerLine = Async.await(readLine(reqBuf, offset, len));
 					
+					if(headerLine == null) {
+						open = false;
+						return AsyncLoop.cfFalse;
+					}
 					if(headerLine.length() == 0)
 						return AsyncLoop.cfFalse;
 					
@@ -257,9 +285,18 @@ public abstract class HTTPDConnection extends TcpConnection {
 					if(headerParts.length != 2)
 						throw new CompletionException(new HTTPError(400, "invalid header"));
 					
-					headerList.add(new Header(headerParts[0].toLowerCase(), headerParts[1]));
+					String headerName = headerParts[0].toLowerCase();
+					String headerValue = headerParts[1];
+					
+					if("connection".equals(headerName))
+						keepAlive = !"close".equalsIgnoreCase(headerValue);
+					
+					headerList.add(new Header(headerName, headerValue));
 					return AsyncLoop.cfTrue;
 				}, executor()));
+				// bail early if other side shutdown
+				if(!open)
+					return AsyncLoop.cfVoid;
 				verb = reqParts[0].toLowerCase();
 				url = reqParts[1];
 				headers = headerList.toArray(new Header[0]);
